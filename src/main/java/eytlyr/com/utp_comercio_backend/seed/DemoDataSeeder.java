@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import eytlyr.com.utp_comercio_backend.ai.CapabilityIndexer;
 import eytlyr.com.utp_comercio_backend.common.BaseEntity;
 import eytlyr.com.utp_comercio_backend.emergency.ListingKind;
 import eytlyr.com.utp_comercio_backend.emergency.Priority;
@@ -65,16 +66,19 @@ public class DemoDataSeeder implements CommandLineRunner {
 
 	private final Clock clock;
 
+	private final CapabilityIndexer indexer;
+
 	private final Map<String, AppUser> users = new HashMap<>();
 
 	private Zone zone;
 
 	private OffsetDateTime now;
 
-	public DemoDataSeeder(ZoneRepository zones, EntityManager em, Clock clock) {
+	public DemoDataSeeder(ZoneRepository zones, EntityManager em, Clock clock, CapabilityIndexer indexer) {
 		this.zones = zones;
 		this.em = em;
 		this.clock = clock;
+		this.indexer = indexer;
 	}
 
 	/** Cuadrícula del prototipo (x,y de 0 a 100, unos 12 m por unidad) → latitud. */
@@ -104,6 +108,10 @@ public class DemoDataSeeder implements CommandLineRunner {
 		seedGroupsAndSafePoints();
 		seedRiskReports();
 		seedMitigation();
+		// Protocolo Lázaro: la IA aprende del historial cargado (con consentimiento de los vecinos demo).
+		em.flush();
+		int learned = indexer.reindexZone(zone.getId());
+		log.info("Inventario de supervivencia: {} capacidades aprendidas.", learned);
 		log.info("Datos demo cargados: {} con {} vecinos.", ZONE_NAME, users.size());
 	}
 

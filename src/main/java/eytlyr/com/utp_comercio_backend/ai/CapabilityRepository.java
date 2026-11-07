@@ -1,5 +1,6 @@
 package eytlyr.com.utp_comercio_backend.ai;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,7 +16,16 @@ public interface CapabilityRepository extends JpaRepository<Capability, UUID> {
 
 	Optional<Capability> findByIdAndUserId(UUID id, UUID userId);
 
-	List<Capability> findByZoneIdAndTagInAndRemovedByUserFalse(UUID zoneId, java.util.Collection<CapabilityTag> tags);
+	List<Capability> findByZoneIdAndTagInAndRemovedByUserFalse(UUID zoneId, Collection<CapabilityTag> tags);
+
+	Optional<Capability> findBySourceTypeAndSourceIdAndTag(SourceType sourceType, UUID sourceId, CapabilityTag tag);
+
+	@Query("""
+			select c from Capability c left join fetch c.user
+			where c.zone.id = :zoneId and c.removedByUser = false
+			order by c.createdAt desc
+			""")
+	List<Capability> findActiveInZone(@Param("zoneId") UUID zoneId);
 
 	/** El vecino retiró su consentimiento: todo lo aprendido de él queda fuera del inventario. */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)

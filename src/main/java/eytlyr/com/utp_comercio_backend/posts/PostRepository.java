@@ -13,6 +13,8 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
 
 	Optional<Post> findByAuthorIdAndClientId(UUID authorId, UUID clientId);
 
+	List<Post> findByZoneId(UUID zoneId);
+
 	@Query("""
 			select p from Post p join fetch p.author
 			where p.zone.id = :zoneId and p.status in :statuses

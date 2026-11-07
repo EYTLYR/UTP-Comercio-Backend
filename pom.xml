@@ -29,6 +29,7 @@
 	<properties>
 		<java.version>21</java.version>
 		<springdoc.version>3.2.0</springdoc.version>
+		<anthropic-java.version>3.2.0</anthropic-java.version>
 		<embedded-postgres.version>2.2.2</embedded-postgres.version>
 		<embedded-postgres-binaries.version>16.15.0</embedded-postgres-binaries.version>
 	</properties>
@@ -76,6 +77,12 @@
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
+		<!-- IA opcional (nearby.ai.provider=anthropic): SDK oficial de Anthropic -->
+		<dependency>
+			<groupId>com.anthropic</groupId>
+			<artifactId>anthropic-java</artifactId>
+			<version>${anthropic-java.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springdoc</groupId>

@@ -12,6 +12,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import eytlyr.com.utp_comercio_backend.ai.dto.AiDtos.ZoneEmergencyActivatedEvent;
 import eytlyr.com.utp_comercio_backend.common.BusinessRuleException;
 import eytlyr.com.utp_comercio_backend.common.GeoUtils;
 import eytlyr.com.utp_comercio_backend.common.NotFoundException;
@@ -84,6 +85,9 @@ public class ZoneService {
 			case PREVENTION -> "Alerta por lluvias · nivel " + label(z.getWeatherLevel());
 			case NORMAL -> "Tu zona volvió a la normalidad";
 		};
+		if (req.mode() == ZoneMode.EMERGENCY) {
+			events.publishEvent(new ZoneEmergencyActivatedEvent(z.getId()));
+		}
 		events.publishEvent(Dispatch.builder()
 				.zone(z.getId(), title, req.reason() != null ? req.reason() : z.getName(),
 						Map.of("type", "zone_mode", "mode", req.mode().name()))
@@ -111,6 +115,7 @@ public class ZoneService {
 		z.setModeReason(active + " alertas SOS en " + emergencyProps.autoActivateWindowMinutes() + " minutos");
 		z.setModeActivatedAt(OffsetDateTime.now(clock));
 		log.warn("Zona {} pasó a EMERGENCY automáticamente ({} SOS activos)", z.getName(), active);
+		events.publishEvent(new ZoneEmergencyActivatedEvent(z.getId()));
 		events.publishEvent(Dispatch.builder()
 				.zone(z.getId(), "Modo emergencia activo", "Varios vecinos pidieron ayuda. Revisa el tablero.",
 						Map.of("type", "zone_mode", "mode", "EMERGENCY"))

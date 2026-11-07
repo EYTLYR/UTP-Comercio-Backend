@@ -1,0 +1,55 @@
+### FASE 9 · IA Protocolo Lázaro y SOS por SMS (ingresa con requests/auth.http)
+@base = http://localhost:8080
+@token = pega-aqui-el-accessToken
+
+### Inventario de supervivencia (vecino: vulnerabilidades anónimas; brigada 999000111: completo)
+GET {{base}}/api/v1/ai/inventory
+Authorization: Bearer {{token}}
+
+### Inventario compacto para el teléfono (repite con If-None-Match -> 304)
+GET {{base}}/api/v1/ai/inventory/snapshot
+Authorization: Bearer {{token}}
+
+### Estadísticas
+GET {{base}}/api/v1/ai/inventory/stats
+Authorization: Bearer {{token}}
+
+### Brigada: generar el plan de rescate (también se genera solo al pasar la zona a EMERGENCY)
+POST {{base}}/api/v1/ai/rescue-plans
+Authorization: Bearer {{token}}
+
+### Último plan
+GET {{base}}/api/v1/ai/rescue-plans/latest
+Authorization: Bearer {{token}}
+
+### Avisar a los asignados (reemplaza el id del reporte) -> "Jorge y Pedro"
+POST {{base}}/api/v1/ai/missions/00000000-0000-0000-0000-000000000000/notify
+Authorization: Bearer {{token}}
+
+### Micrófono inteligente
+POST {{base}}/api/v1/ai/classify
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "text": "Por favor ayúdenme, se cayó la pared de mi casa en Los Pinos 340 y mi papá está herido de un brazo", "mode": "EMERGENCY" }
+
+### Comprimir un reporte -> NB#SOS!H1@LP340$P:ALTA
+POST {{base}}/api/v1/sms/encode
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "category": "INJURED", "people": 1, "addressText": "Jr. Los Pinos 340", "priority": "HIGH" }
+
+### Leer un código (vista del brigadista)
+POST {{base}}/api/v1/sms/decode
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "code": "NB#SOS!A2@MC12$P:ALTA" }
+
+### Webhook de la pasarela SMS (sin JWT; token compartido)
+POST {{base}}/api/v1/sms/inbound
+X-Nearby-Token: dev-sms-token
+Content-Type: application/json
+
+{ "from": "+51987654321", "body": "NB#SOS!H1@LP340$P:ALTA" }

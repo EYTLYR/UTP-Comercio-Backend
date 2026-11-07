@@ -1,30 +1,37 @@
 package eytlyr.com.utp_comercio_backend.ai;
 
-/** Capacidad del inventario de supervivencia (Protocolo Lázaro), con su nombre en español para la app. */
+/** Capacidad del inventario de supervivencia (Protocolo Lázaro), con su nombre en español y su tipo. */
 public enum CapabilityTag {
 
-	HEIGHT_RESCUE("Rescate en altura"),
-	RESCUE_TOOLS("Herramientas de rescate"),
-	BACKUP_POWER("Energía de respaldo"),
-	WATER_RESERVE("Reserva de agua"),
-	EVAC_TRANSPORT("Transporte de evacuación"),
-	PARAMEDIC("Soporte paramédico"),
-	TECHNICIAN("Brigadista técnico"),
-	ELDERLY_AT_HOME("Adulto mayor en casa"),
-	REDUCED_MOBILITY("Movilidad reducida"),
-	OXYGEN_DEPENDENT("Depende de oxígeno"),
-	SANDBAGS("Sacos de arena"),
-	PUMP("Motobomba"),
-	ROOF_COVER("Calaminas y plásticos"),
-	SHOVELS("Palas y picos");
+	HEIGHT_RESCUE("Rescate en altura", CapabilityKind.RESOURCE),
+	RESCUE_TOOLS("Herramientas de rescate", CapabilityKind.RESOURCE),
+	BACKUP_POWER("Energía de respaldo", CapabilityKind.RESOURCE),
+	WATER_RESERVE("Reserva de agua", CapabilityKind.RESOURCE),
+	EVAC_TRANSPORT("Transporte de evacuación", CapabilityKind.RESOURCE),
+	PARAMEDIC("Soporte paramédico", CapabilityKind.SKILL),
+	TECHNICIAN("Brigadista técnico", CapabilityKind.SKILL),
+	ELDERLY_AT_HOME("Adulto mayor en casa", CapabilityKind.VULNERABILITY),
+	REDUCED_MOBILITY("Movilidad reducida", CapabilityKind.VULNERABILITY),
+	OXYGEN_DEPENDENT("Depende de oxígeno", CapabilityKind.VULNERABILITY),
+	SANDBAGS("Sacos de arena", CapabilityKind.RESOURCE),
+	PUMP("Motobomba", CapabilityKind.RESOURCE),
+	ROOF_COVER("Calaminas y plásticos", CapabilityKind.RESOURCE),
+	SHOVELS("Palas y picos", CapabilityKind.RESOURCE);
 
 	private final String label;
 
-	CapabilityTag(String label) {
+	private final CapabilityKind kind;
+
+	CapabilityTag(String label, CapabilityKind kind) {
 		this.label = label;
+		this.kind = kind;
 	}
 
 	public String label() {
 		return label;
+	}
+
+	public CapabilityKind kind() {
+		return kind;
 	}
 }

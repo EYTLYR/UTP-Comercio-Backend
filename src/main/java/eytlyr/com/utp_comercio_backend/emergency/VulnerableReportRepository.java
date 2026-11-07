@@ -18,6 +18,8 @@ public interface VulnerableReportRepository extends JpaRepository<VulnerableRepo
 
 	long countByZoneId(UUID zoneId);
 
+	boolean existsBySourceCapabilityId(UUID capabilityId);
+
 	long countByZoneIdAndStatus(UUID zoneId, ReportStatus status);
 
 	/** El más reciente primero (el servicio ordena luego por prioridad). */

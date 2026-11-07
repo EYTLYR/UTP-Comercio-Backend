@@ -42,6 +42,7 @@ public class SecurityConfig {
 
 	static final String[] PUBLIC_PATHS = {
 			"/api/v1/auth/**",
+			"/api/v1/sms/inbound", // protegido con X-Nearby-Token (SmsService)
 			"/actuator/health", "/actuator/health/**",
 			"/v3/api-docs", "/v3/api-docs/**",
 			"/swagger-ui.html", "/swagger-ui/**",

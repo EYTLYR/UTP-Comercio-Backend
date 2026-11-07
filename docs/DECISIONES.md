@@ -108,3 +108,31 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
    - Los grupos de apoyo se ubican en el centro de la zona, porque no tienen coordenadas propias.
    - La capa `prevention` ya incluye los reportes de riesgo de las últimas 24 h, las capacidades de mitigación de la IA (fase 9) y los listados de mitigación que dicen «tengo».
 7. **Íconos:** las categorías tienen `label()` en español (vulnerables, recursos, mitigación y riesgos) y los pines usan nombres de Material Symbols.
+
+## Fase 9
+
+1. **Extractor por defecto:** el de reglas (ANEXO B, confianza 0.7). Además, un oficio de gasfitería o electricidad suma `TECHNICIAN` (0.9).
+   - Con `nearby.ai.provider=anthropic` y `ANTHROPIC_API_KEY` se activa `AnthropicCapabilityExtractor`. Usa el SDK oficial `anthropic-java` 3.2.0 con el modelo `nearby.ai.model` (por defecto `claude-haiku-5-5`), esfuerzo `low`, 3 s de tiempo máximo y sin reintentos.
+   - Pide solo JSON y descarta las etiquetas desconocidas. Si falla, usa el extractor de reglas.
+2. **Qué cuenta como capacidad:**
+   - En un «Necesito» (publicación o listado) el vecino NO tiene el recurso, así que solo cuentan las vulnerabilidades.
+   - En una reseña, lo que se dice del servicio («me inyectó») es capacidad del dueño; una vulnerabilidad es de quien escribe.
+3. **Fecha de la capacidad:** es la del contenido original. Así la IA puede decir «Publicación del muro hace 21 días».
+4. **`zoneLabel`** es la calle más cercana (por ejemplo, «Jr. Los Pinos»): los usuarios demo no tienen manzana registrada. Las vulnerabilidades le llegan a un `NEIGHBOR` como «Vecino de Jr. Los Pinos», sin evidencia y con coordenadas aproximadas.
+5. **Reportes preventivos:**
+   - Se crea uno por persona: si alguien tiene varias vulnerabilidades, se elige la primera según el orden del enum (adulto mayor, luego movilidad reducida, luego oxígeno).
+   - No se crea si ya existe un reporte abierto a menos de 60 m, ni si esa capacidad ya generó uno antes.
+   - En la semilla salen 2: Lucía (abuela) y la Familia Soto (oxígeno). Carla queda cubierta por el reporte de Mz. F.
+6. **Misiones:**
+   - La persona vulnerable nunca se asigna a sí misma, y ningún vecino se repite dentro de la misma misión.
+   - Para la Sra. Teresa salen Jorge Paredes (escalera) y Pedro Ramos (palanca); para el oxígeno, Taller Mendoza (generador).
+   - `assigned_label` usa los primeros nombres: «Jorge y Pedro».
+7. **Disparadores:**
+   - Al pasar la zona a EMERGENCY (por la Municipalidad o por la activación automática) se publica `ZoneEmergencyActivatedEvent` y el plan se genera solo, en segundo plano (`nearby.ai.auto-rescue-plan`).
+   - Cada contenido nuevo se indexa en segundo plano (`nearby.ai.index-on-events`).
+   - En las pruebas, ambos están apagados (`src/test/resources/config/application.properties`) para que no se mezclen entre pruebas.
+8. **El seeder indexa la zona al final**, así la demo arranca con el inventario listo (25 capacidades).
+9. **Códigos SOS:**
+   - El webhook `/api/v1/sms/inbound` es público, pero exige `X-Nearby-Token` (comparación en tiempo constante). Busca el código dentro del texto del SMS y siempre responde 200 si el token es válido.
+   - Las letras de SOS (S, F, R, V, X) se registran como `INJURED`; Q (sismo) como `TRAPPED`.
+   - `locationFromAddress` reconoce «Jr. Los Pinos 340» → `LP340` y «Mz. C lote 12» → `MC12`. Si no entiende la dirección, usa la calle más cercana con número 0.

@@ -51,11 +51,17 @@ public record NearbyProperties(
 			@DefaultValue("6") int clusterWindowHours) {
 	}
 
-	/** Proveedor de IA de texto: "rules" (sin credenciales) o "anthropic". */
+	/**
+	 * Proveedor de IA de texto: "rules" (sin credenciales) o "anthropic".
+	 * indexOnEvents: indexar cada contenido nuevo en segundo plano.
+	 * autoRescuePlan: generar el plan de rescate al pasar la zona a EMERGENCY.
+	 */
 	public record Ai(
 			@DefaultValue("rules") String provider,
 			@DefaultValue("claude-haiku-5-5") String model,
-			String apiKey) {
+			String apiKey,
+			@DefaultValue("true") boolean indexOnEvents,
+			@DefaultValue("true") boolean autoRescuePlan) {
 
 		public boolean isAnthropic() {
 			return "anthropic".equalsIgnoreCase(provider) && apiKey != null && !apiKey.isBlank();
