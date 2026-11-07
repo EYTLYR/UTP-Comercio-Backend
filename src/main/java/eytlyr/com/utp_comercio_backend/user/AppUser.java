@@ -11,6 +11,10 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
+import org.locationtech.jts.geom.Point;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -54,6 +58,15 @@ public class AppUser extends BaseEntity {
 
 	@Column(name = "lng")
 	private Double lng;
+
+	/**
+	 * Punto PostGIS (SRID 4326) de la última ubicación. Es una columna generada por la base a partir de
+	 * lat/lng (V4__postgis.sql): no se escribe desde Java, y Hibernate la vuelve a leer al insertar o
+	 * actualizar. Se usa en {@link AppUserRepository#findWithinRadius} con ST_DWithin.
+	 */
+	@Generated(event = { EventType.INSERT, EventType.UPDATE })
+	@Column(name = "location", insertable = false, updatable = false, columnDefinition = "geometry(Point,4326)")
+	private Point location;
 
 	@Column(name = "address_text", length = 200)
 	private String addressText;

@@ -28,4 +28,17 @@ public interface SosAlertRepository extends JpaRepository<SosAlert, UUID> {
 	@Query("select a from SosAlert a join fetch a.user where a.zone.id = :zoneId and a.status = :status")
 	List<SosAlert> findByZoneAndStatus(@Param("zoneId") UUID zoneId, @Param("status") SosStatus status);
 
+	/** SOS activos de otros vecinos a radiusM metros o menos, del más cercano al más lejano (PostGIS). */
+	@Query(value = """
+			SELECT a.* FROM sos_alert a
+			WHERE a.status = 'ACTIVE'
+			  AND a.user_id <> :userId
+			  AND ST_DWithin(a.location::geography,
+			                 ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography,
+			                 :radiusM)
+			ORDER BY a.location::geography <-> ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+			""", nativeQuery = true)
+	List<SosAlert> findActiveWithinRadius(@Param("userId") UUID userId, @Param("lat") double lat,
+			@Param("lng") double lng, @Param("radiusM") double radiusM);
+
 }

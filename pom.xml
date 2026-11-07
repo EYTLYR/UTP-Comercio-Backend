@@ -30,8 +30,6 @@
 		<java.version>21</java.version>
 		<springdoc.version>3.2.0</springdoc.version>
 		<anthropic-java.version>3.2.0</anthropic-java.version>
-		<embedded-postgres.version>2.2.2</embedded-postgres.version>
-		<embedded-postgres-binaries.version>16.15.0</embedded-postgres-binaries.version>
 		<aws-sdk.version>2.57.11</aws-sdk.version>
 	</properties>
 	<dependencyManagement>
@@ -40,14 +38,6 @@
 				<groupId>software.amazon.awssdk</groupId>
 				<artifactId>bom</artifactId>
 				<version>${aws-sdk.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
-			<!-- PostgreSQL 16 embebido (mismo major que compose.yaml) para pruebas sin Docker -->
-			<dependency>
-				<groupId>io.zonky.test.postgres</groupId>
-				<artifactId>embedded-postgres-binaries-bom</artifactId>
-				<version>${embedded-postgres-binaries.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -61,6 +51,11 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<!-- Tipos geométricos de PostGIS (JTS Point) en las entidades JPA -->
+		<dependency>
+			<groupId>org.hibernate.orm</groupId>
+			<artifactId>hibernate-spatial</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -173,12 +168,6 @@
 		<dependency>
 			<groupId>org.testcontainers</groupId>
 			<artifactId>testcontainers-postgresql</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>io.zonky.test</groupId>
-			<artifactId>embedded-postgres</artifactId>
-			<version>${embedded-postgres.version}</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

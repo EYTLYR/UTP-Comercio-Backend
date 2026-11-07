@@ -109,14 +109,14 @@ public class SosService {
 				.clientId(req.clientId())
 				.build());
 
-		// Destinatarios: vecinos a 500 m (por su última ubicación) y la brigada de la zona.
-		List<AppUser> zoneUsers = users.findByZoneId(zone.getId());
-		List<AppUser> neighbors = zoneUsers.stream()
+		// Destinatarios: vecinos a 500 m (por su última ubicación, con PostGIS ST_DWithin) y la brigada
+		// de la zona. El radio no se corta en el límite de la zona: un vecino de la zona de al lado
+		// que está a 300 m también recibe el aviso.
+		List<AppUser> neighbors = users.findWithinRadius(req.lat(), req.lng(), ALERT_RADIUS_M).stream()
 				.filter(u -> !u.getId().equals(userId) && u.getRole() != Role.BRIGADIST)
-				.filter(u -> within(u, req.lat(), req.lng(), ALERT_RADIUS_M))
 				.toList();
-		List<AppUser> brigade = zoneUsers.stream()
-				.filter(u -> u.getRole() == Role.BRIGADIST && !u.getId().equals(userId))
+		List<AppUser> brigade = users.findByZoneIdAndRole(zone.getId(), Role.BRIGADIST).stream()
+				.filter(u -> !u.getId().equals(userId))
 				.toList();
 		List<TrustedContact> myContacts = contacts.findByUserIdOrderByPosition(userId);
 
@@ -180,19 +180,17 @@ public class SosService {
 	@Transactional(readOnly = true)
 	public List<NearbySosDto> nearby(UUID userId, int radiusM) {
 		AppUser me = user(userId);
-		if (me.getZone() == null || me.getLat() == null || me.getLng() == null) {
+		if (me.getLat() == null || me.getLng() == null) {
 			return List.of();
 		}
 		OffsetDateTime now = OffsetDateTime.now(clock);
-		return alerts.findByZoneAndStatus(me.getZone().getId(), SosStatus.ACTIVE).stream()
-				.filter(a -> !a.getUser().getId().equals(userId))
+		// PostGIS filtra por radio y ordena por distancia con el índice GIST.
+		return alerts.findActiveWithinRadius(userId, me.getLat(), me.getLng(), radiusM).stream()
 				.map(a -> new NearbySosDto(a.getId(), a.getUser().getName(), a.getType(),
 						meters(me.getLat(), me.getLng(), a.getLat(), a.getLng()),
 						Duration.between(a.getCreatedAt(), now).toMinutes(),
 						responses.countByAlertIdAndStatus(a.getId(), ResponseStatus.GOING), GeoUtils.approx(a.getLat()),
 						GeoUtils.approx(a.getLng())))
-				.filter(a -> a.distanceM() <= radiusM)
-				.sorted((x, y) -> Integer.compare(x.distanceM(), y.distanceM()))
 				.toList();
 	}
 
@@ -221,10 +219,8 @@ public class SosService {
 		switch (status) {
 			case GOING -> d.push(a.getUser().getId(), me.getName() + " va en camino",
 					r.getEtaMinutes() != null ? "Llega en unos " + r.getEtaMinutes() + " min" : "Va en camino", data);
-			case DECLINED -> users.findByZoneId(a.getZone().getId()).stream()
+			case DECLINED -> users.findInRing(a.getLat(), a.getLng(), ALERT_RADIUS_M, DECLINED_RADIUS_M).stream()
 					.filter(u -> !u.getId().equals(userId) && !u.getId().equals(a.getUser().getId()))
-					.filter(u -> within(u, a.getLat(), a.getLng(), DECLINED_RADIUS_M)
-							&& !within(u, a.getLat(), a.getLng(), ALERT_RADIUS_M))
 					.forEach(u -> d.push(u.getId(), "SOS: " + a.getUser().getName() + " necesita ayuda",
 							distanceText(u, a.getLat(), a.getLng()), data));
 			case ARRIVED -> {
@@ -299,10 +295,6 @@ public class SosService {
 	private static SosCreatedDto created(SosAlert a, int neighbors, int contacts, int brigade, boolean zoneActivated) {
 		return new SosCreatedDto(a.getId(), a.getStatus(), neighbors, contacts, brigade, a.getSmsCode(), zoneActivated,
 				a.getCreatedAt());
-	}
-
-	private static boolean within(AppUser u, double lat, double lng, int radiusM) {
-		return u.getLat() != null && u.getLng() != null && GeoUtils.haversineMeters(u.getLat(), u.getLng(), lat, lng) <= radiusM;
 	}
 
 	private static String distanceText(AppUser u, double lat, double lng) {

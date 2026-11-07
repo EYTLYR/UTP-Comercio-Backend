@@ -8,7 +8,7 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 2. **Spring Boot 4.1.2.** Es la versión del `pom.xml`. Trae Jackson 3, starters modulares (`spring-boot-starter-webmvc`, etc.) y Testcontainers 2. Con ella se usa springdoc-openapi **3.2.0**, que está compilado contra Boot 4.1.2.
 3. **Puerto del host aleatorio en `compose.yaml`** (`'5432'` en vez de `'5432:5432'`). La PC de desarrollo ya tiene un PostgreSQL 18 escuchando en 5432. Spring Boot Docker Compose Support detecta el puerto que se asignó, así que no hace falta fijarlo.
 4. **Perfil `local`**, para trabajar sin Docker contra un PostgreSQL instalado o contra el repo `UTP-Comercio-Data-Base` (puerto 5435). Es un grupo que también activa `dev`.
-5. **PostgreSQL embebido para pruebas** (zonky `embedded-postgres`, binarios 16.15). Se usa solo cuando no hay Docker; si hay Docker, se usa Testcontainers como pide el prompt. Con esto, `./mvnw verify` y `./mvnw spring-boot:test-run` funcionan en cualquier PC. El clúster se crea con UTF-8 y locale C para no heredar la codificación WIN1252 de Windows.
+5. **PostgreSQL embebido para pruebas** (zonky `embedded-postgres`, binarios 16.15; reemplazado al pasar a PostGIS, ver al final). Se usa solo cuando no hay Docker; si hay Docker, se usa Testcontainers como pide el prompt. Con esto, `./mvnw verify` y `./mvnw spring-boot:test-run` funcionan en cualquier PC. El clúster se crea con UTF-8 y locale C para no heredar la codificación WIN1252 de Windows.
 6. **El `JwtDecoder` HS256 ya está configurado** (con `nearby.jwt-secret`), así que el resto de la API responde 401 con ProblemDetail. La emisión de tokens llega en la fase 3.
 7. **CORS** se configura con `nearby.cors.allowed-origin-patterns`. En dev vale `http://localhost:*` y `http://127.0.0.1:*`; en prod se define por `NEARBY_CORS_ORIGINS`.
 8. **Swagger desactivado en `prod`** salvo que se defina `NEARBY_SWAGGER_ENABLED=true`.
@@ -206,3 +206,14 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 - **Datos base:** `BaseDataInitializer` crea, solo si no hay ninguna zona, la Zona 3 · Las Flores, sus 5 calles (códigos SMS) y 2 puntos seguros. Sin una zona nadie podría registrarse ("Nearby aún no llega a tu zona"). Corre después del seeder de pruebas, que ya crea la zona, así que en las pruebas no hace nada.
 - **Roles por celular:** como todos se registran como vecinos, `NEARBY_ADMIN_PHONES` y `NEARBY_BRIGADE_PHONES` definen la Municipalidad y la brigada. Se aplican en cada ingreso; no hace falta tocar la base.
 - **Neon:** se vació (todas las tablas menos el historial de Flyway) para empezar con usuarios reales.
+
+## PostGIS para las distancias del SOS
+
+Detalle y código en [POSTGIS.md](POSTGIS.md).
+
+- **Columna generada en vez de reemplazar lat/lng:** `app_user.location` y `sos_alert.location` son `geometry(Point, 4326)` `GENERATED ALWAYS AS (ST_SetSRID(ST_MakePoint(lng, lat), 4326)) STORED`. Todo el código y la API siguen con lat/lng, y el punto no puede desincronizarse. En la entidad `AppUser` va como `org.locationtech.jts.geom.Point` de solo lectura (`@Generated`).
+- **Metros con geography:** la columna es `geometry` (lo pedido), pero las búsquedas usan `ST_DWithin(location::geography, punto::geography, metros)` porque en `geometry` 4326 la distancia está en grados. Por eso hay dos índices GIST: uno sobre `location` y otro sobre `(location::geography)`, que es el que usa `ST_DWithin`.
+- **El radio ya no se corta en la zona:** los vecinos a 500 m de un SOS se buscan en toda la base, no solo en la zona del que pide ayuda. La brigada sigue siendo la de la zona.
+- **SOS cercanos:** `GET /sos/nearby` (lo consulta cada app cada 20 s) también pasó a `ST_DWithin` sobre `sos_alert.location`, en lugar de traer todos los SOS activos de la zona y medir en Java.
+- **Pruebas sin zonky:** los binarios de zonky no traen PostGIS. Con Docker se usa `postgis/postgis:18-3.6-alpine`; sin Docker, `LocalPostgis` crea un clúster temporal (initdb + pg_ctl) con la instalación local que tenga PostGIS.
+- **Neon:** PostgreSQL 18.6 con PostGIS 3.6.4 disponible; la migración V4 lo habilita con `CREATE EXTENSION`. Las versiones anteriores del backend siguen funcionando contra la base migrada (solo se agregan columnas).

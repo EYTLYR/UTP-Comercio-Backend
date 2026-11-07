@@ -28,7 +28,7 @@ Stack:
 │ CapabilityExtractor / PhotoRiskAnalyzer ──► reglas  |  Claude (claude-haiku-5-5)          │
 └───────────────────────────────────────────┬───────────────────────────────────────────────┘
                                             ▼
-                 Neon PostgreSQL (Flyway V1..V3) · fotos en Neon Object Storage (S3, bucket nearby)
+                 Neon PostgreSQL + PostGIS (Flyway V1..V4) · fotos en Neon Object Storage (S3, bucket nearby)
 ```
 
 - **Paquetes por funcionalidad:** cada uno tiene su entidad, repositorio, servicio, controlador y `dto/`.
@@ -49,7 +49,7 @@ Elige una de estas formas.
 ./mvnw spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-**1. Sin Docker y sin internet.** Usa un PostgreSQL 16 embebido y fotos en memoria, y carga los datos de ejemplo de las pruebas (María, la brigada, etc.; solo aquí). Se borra al detener la app.
+**1. Sin Docker y sin internet.** Arranca un PostgreSQL temporal con tu instalación local de PostgreSQL + PostGIS (ver [Pruebas](#pruebas)) y fotos en memoria, y carga los datos de ejemplo de las pruebas (María, la brigada, etc.; solo aquí). Se borra al detener la app.
 
 ```bash
 ./mvnw spring-boot:test-run
@@ -61,7 +61,7 @@ Elige una de estas formas.
 ./mvnw spring-boot:run
 ```
 
-**3. Con un PostgreSQL ya instalado** (perfil `local`; en PowerShell):
+**3. Con un PostgreSQL ya instalado** (perfil `local`; necesita la extensión PostGIS; en PowerShell):
 
 ```powershell
 $env:DB_URL="jdbc:postgresql://localhost:5435/utp_comercio_db"; $env:DB_USER="utp_comercio_user"; $env:DB_PASSWORD="..."
@@ -89,7 +89,10 @@ docker compose -f compose.prod.yaml --env-file .env up -d --build
 ./mvnw verify
 ```
 
-Son 82 pruebas contra PostgreSQL 16 real: Testcontainers si hay Docker, embebido si no. Las fotos van a memoria: las pruebas no tocan Neon ni S3.
+Son 88 pruebas contra PostgreSQL real con PostGIS. Las fotos van a memoria: las pruebas no tocan Neon ni S3.
+
+- **Con Docker:** Testcontainers con la imagen `postgis/postgis:18-3.6-alpine` (las mismas versiones que Neon).
+- **Sin Docker:** se crea un clúster temporal con la instalación local de PostgreSQL que tenga PostGIS (en Windows, el instalador de EDB y luego Stack Builder › Spatial Extensions › PostGIS). Se busca en `C:\Program Files\PostgreSQL\*`, `/usr/lib/postgresql/*` y Homebrew; si está en otro lado, define `NEARBY_PG_HOME` con la carpeta que contiene `bin/` y `share/`.
 
 Cubren la lógica clave:
 - el codec SMS y el clasificador;

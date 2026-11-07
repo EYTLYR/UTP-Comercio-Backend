@@ -2,7 +2,8 @@
 # al ejecutar ./mvnw spring-boot:run (perfil dev) y le pasa la conexión a la app.
 services:
   postgres:
-    image: 'postgres:16-alpine'
+    # PostgreSQL 16 con PostGIS (la migración V4 lo necesita).
+    image: 'postgis/postgis:16-3.5-alpine'
     environment:
       - 'POSTGRES_DB=nearby'
       - 'POSTGRES_USER=nearby'
