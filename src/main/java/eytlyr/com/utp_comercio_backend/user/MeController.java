@@ -27,6 +27,7 @@ import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.PrepChecklistItemDto
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.SettingsRequest;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.TrustedContactDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.UpdateNameRequest;
+import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.UserLocationDto;
 import eytlyr.com.utp_comercio_backend.user.dto.UserDto;
 
 /** Perfil propio: siempre del usuario del token, nunca de otro. */
@@ -57,6 +58,12 @@ public class MeController {
 	@Operation(summary = "Cambiar mi nombre (2 a 60 caracteres)")
 	public UserDto updateName(@Valid @RequestBody UpdateNameRequest body) {
 		return profile.updateName(currentUser.id(), body.name());
+	}
+
+	@GetMapping("/location")
+	@Operation(summary = "Mi ubicación y dirección privada")
+	public UserLocationDto location() {
+		return profile.userLocation(currentUser.id());
 	}
 
 	@PutMapping("/location")

@@ -30,9 +30,12 @@ public final class ProfileDtos {
 	}
 
 	public record LocationRequest(
-			@NotNull(message = "Falta la latitud") @DecimalMin("-90") @DecimalMax("90") Double lat,
-			@NotNull(message = "Falta la longitud") @DecimalMin("-180") @DecimalMax("180") Double lng,
+			@DecimalMin("-90") @DecimalMax("90") Double lat,
+			@DecimalMin("-180") @DecimalMax("180") Double lng,
 			@Size(max = 200, message = "La dirección es muy larga") String addressText) {
+	}
+
+	public record UserLocationDto(Double lat, Double lng, String addressText, UUID zoneId, String zoneName) {
 	}
 
 	public record TrustedContactDto(

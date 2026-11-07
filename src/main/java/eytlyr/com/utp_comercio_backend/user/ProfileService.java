@@ -32,6 +32,7 @@ import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.LocationRequest;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.MedicalCardDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.PrepChecklistItemDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.TrustedContactDto;
+import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.UserLocationDto;
 import eytlyr.com.utp_comercio_backend.user.dto.UserDto;
 import eytlyr.com.utp_comercio_backend.zone.Zone;
 import eytlyr.com.utp_comercio_backend.zone.ZoneRepository;
@@ -94,23 +95,38 @@ public class ProfileService {
 		return UserDto.from(user);
 	}
 
-	/** Guarda la ubicación y asigna la zona que cubre ese punto o la más cercana si está en fase piloto. */
+	/** Guarda la ubicación o dirección y asigna la zona que cubre ese punto o la más cercana si está en fase piloto. */
 	@Transactional
 	public UserDto updateLocation(UUID userId, LocationRequest req) {
+		AppUser user = userService.get(userId);
+		Double lat = req.lat() != null ? req.lat() : user.getLat();
+		Double lng = req.lng() != null ? req.lng() : user.getLng();
+		if (lat == null || lng == null) {
+			throw new BusinessRuleException(ZONE_NOT_COVERED, "Falta la latitud y longitud");
+		}
 		Zone zone = zones.findAll().stream()
-				.map(z -> Map.entry(z, GeoUtils.haversineMeters(req.lat(), req.lng(), z.getCenterLat(), z.getCenterLng())))
+				.map(z -> Map.entry(z, GeoUtils.haversineMeters(lat, lng, z.getCenterLat(), z.getCenterLng())))
 				.filter(e -> e.getValue() <= e.getKey().getRadiusM())
 				.min(Map.Entry.comparingByValue())
 				.map(Map.Entry::getKey)
 				.orElseGet(() -> zones.findAll().stream()
-						.min(Comparator.comparingDouble(z -> GeoUtils.haversineMeters(req.lat(), req.lng(), z.getCenterLat(), z.getCenterLng())))
+						.min(Comparator.comparingDouble(z -> GeoUtils.haversineMeters(lat, lng, z.getCenterLat(), z.getCenterLng())))
 						.orElseThrow(() -> new BusinessRuleException(ZONE_NOT_COVERED, "Nearby aún no llega a tu zona")));
-		AppUser user = userService.get(userId);
-		user.setLat(req.lat());
-		user.setLng(req.lng());
-		user.setAddressText(blankToNull(req.addressText()));
+		user.setLat(lat);
+		user.setLng(lng);
+		if (req.addressText() != null) {
+			user.setAddressText(blankToNull(req.addressText()));
+		}
 		user.setZone(zone);
 		return UserDto.from(user);
+	}
+
+	@Transactional(readOnly = true)
+	public UserLocationDto userLocation(UUID userId) {
+		AppUser user = userService.get(userId);
+		Zone z = user.getZone();
+		return new UserLocationDto(user.getLat(), user.getLng(), user.getAddressText(),
+				z != null ? z.getId() : null, z != null ? z.getName() : null);
 	}
 
 	// ---------------------------------------------------------------- contactos de confianza

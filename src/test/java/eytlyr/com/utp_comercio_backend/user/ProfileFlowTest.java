@@ -79,6 +79,21 @@ class ProfileFlowTest {
 				.andExpect(jsonPath("$.addressText").doesNotExist());
 		assertThat(jdbc.queryForObject("select address_text from app_user where id = ?", String.class, s.userId()))
 				.isEqualTo("Jr. Los Pinos 340");
+
+		mvc.perform(get("/api/v1/me/location").header("Authorization", s.bearer()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.addressText").value("Jr. Los Pinos 340"))
+				.andExpect(jsonPath("$.lat").value(-11.9781))
+				.andExpect(jsonPath("$.lng").value(-77.0042))
+				.andExpect(jsonPath("$.zoneName").value("Zona 3 · Las Flores"));
+
+		// Editar solo la dirección manteniendo las coordenadas existentes
+		putJson(s, "/api/v1/me/location", "{\"addressText\":\"Av. Las Flores 500, Dpto 302\"}")
+				.andExpect(status().isOk());
+		mvc.perform(get("/api/v1/me/location").header("Authorization", s.bearer()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.addressText").value("Av. Las Flores 500, Dpto 302"))
+				.andExpect(jsonPath("$.lat").value(-11.9781));
 	}
 
 	@Test
