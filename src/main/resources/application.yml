@@ -71,7 +71,8 @@ nearby:
     provider: ${NEARBY_SMS_PROVIDER:console}
     inbound-token: ${NEARBY_SMS_INBOUND_TOKEN:}
     gateway:
-      url: ${NEARBY_SMS_GATEWAY_URL:http://localhost:3000}
+      # Microservicio SMS compartido del equipo (túnel de James). Solo hace falta la clave en .env.
+      url: ${NEARBY_SMS_GATEWAY_URL:https://fflx84lw-3000.brs.devtunnels.ms}
       api-key: ${NEARBY_SMS_GATEWAY_API_KEY:}
   emergency:
     auto-activate-sos-count: 5

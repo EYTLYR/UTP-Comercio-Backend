@@ -158,9 +158,9 @@ Backend ── POST /v1/messages (X-Api-Key) ──► microservicio SMS ──�
 SMS entrante ──► celular ──► microservicio ── POST /api/v1/sms/inbound (X-Nearby-Token) ──► backend
 ```
 
-1. Levanta el microservicio (`npm start` en `sms-gateway-demo`, puerto 3000) con el celular conectado.
-2. En el `.env` del backend: `NEARBY_SMS_PROVIDER=gateway`, `NEARBY_SMS_GATEWAY_URL=http://localhost:3000` y `NEARBY_SMS_GATEWAY_API_KEY` igual a `SERVICE_API_KEY` del microservicio. Si falta alguna, el backend no arranca y lo dice.
-3. Para los SMS entrantes, en el microservicio: `FORWARD_URL=http://localhost:8080/api/v1/sms/inbound` y `FORWARD_TOKEN` igual a `NEARBY_SMS_INBOUND_TOKEN` del backend.
+**Para el equipo:** el microservicio ya corre en la PC de James y se publica en `https://fflx84lw-3000.brs.devtunnels.ms` (valor por defecto de `NEARBY_SMS_GATEWAY_URL`). No hace falta levantarlo: en tu `.env` pon `NEARBY_SMS_PROVIDER=gateway` y `NEARBY_SMS_GATEWAY_API_KEY` (pídele la clave a James; no la subas a git, el repo es público). Si falta la clave, el backend no arranca y lo dice. Si el túnel está apagado, el código de ingreso sigue funcionando con `123456` en dev.
+
+**Para levantarlo tú:** `npm start` en `sms-gateway-demo` (puerto 3000) con el celular conectado, y en el backend `NEARBY_SMS_GATEWAY_URL=http://localhost:3000` con la misma clave que `SERVICE_API_KEY` del microservicio. Los SMS entrantes se reenvían a `FORWARD_URL` (`http://localhost:8080/api/v1/sms/inbound`) con `FORWARD_TOKEN` igual a `NEARBY_SMS_INBOUND_TOKEN` del backend: llegan al backend de quien corre el microservicio.
 
 Si el SMS del código de ingreso falla y hay código fijo (dev/demo), igual se puede entrar con ese código; sin código fijo la API responde `422 SMS_SEND_FAILED`. Los avisos del SOS que fallan se registran en el log y no detienen el SOS.
 
