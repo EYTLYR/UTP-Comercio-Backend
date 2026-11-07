@@ -1,0 +1,42 @@
+### FASE 6 · Muro de favores y chat (ingresa primero con requests/auth.http)
+@base = http://localhost:8080
+@token = pega-aqui-el-accessToken
+
+### Publicar (sin texto genera "Necesito: préstamo de herramientas"); repetir el clientId devuelve 200 y la misma publicación
+POST {{base}}/api/v1/posts
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "clientId": "7b0f4f7e-0000-4000-8000-000000000001", "type": "NEED", "category": "TOOL_LOAN" }
+
+### Publicaciones del barrio
+GET {{base}}/api/v1/posts?radiusM=1000
+Authorization: Bearer {{token}}
+
+### Yo te ayudo / Me interesa -> { conversationId } (reemplaza el id)
+POST {{base}}/api/v1/posts/00000000-0000-0000-0000-000000000000/responses
+Authorization: Bearer {{token}}
+
+### Favores de la semana
+GET {{base}}/api/v1/neighborhood/stats
+Authorization: Bearer {{token}}
+
+### Mis conversaciones (unread = no leídos)
+GET {{base}}/api/v1/conversations
+Authorization: Bearer {{token}}
+
+### Mensajes (polling: agrega ?after=2026-11-06T20:00:00-05:00)
+GET {{base}}/api/v1/conversations/00000000-0000-0000-0000-000000000000/messages
+Authorization: Bearer {{token}}
+
+### Enviar mensaje (idempotente por clientId)
+POST {{base}}/api/v1/conversations/00000000-0000-0000-0000-000000000000/messages
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "clientId": "7b0f4f7e-0000-4000-8000-000000000002", "text": "Hola, ¿a qué hora te queda bien?" }
+
+### Tiempo real (SSE)
+GET {{base}}/api/v1/conversations/00000000-0000-0000-0000-000000000000/stream
+Authorization: Bearer {{token}}
+Accept: text/event-stream

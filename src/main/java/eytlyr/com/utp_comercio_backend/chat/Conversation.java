@@ -1,5 +1,8 @@
 package eytlyr.com.utp_comercio_backend.chat;
 
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -46,5 +49,32 @@ public class Conversation extends BaseEntity {
 
 	@Column(name = "context_text", length = 200)
 	private String contextText;
+
+	@Column(name = "user_a_read_at")
+	private OffsetDateTime userAReadAt;
+
+	@Column(name = "user_b_read_at")
+	private OffsetDateTime userBReadAt;
+
+	public boolean isParticipant(UUID userId) {
+		return userA.getId().equals(userId) || userB.getId().equals(userId);
+	}
+
+	public AppUser other(UUID userId) {
+		return userA.getId().equals(userId) ? userB : userA;
+	}
+
+	public OffsetDateTime readAt(UUID userId) {
+		return userA.getId().equals(userId) ? userAReadAt : userBReadAt;
+	}
+
+	public void markRead(UUID userId, OffsetDateTime when) {
+		if (userA.getId().equals(userId)) {
+			userAReadAt = when;
+		}
+		else {
+			userBReadAt = when;
+		}
+	}
 
 }

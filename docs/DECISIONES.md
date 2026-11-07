@@ -67,3 +67,18 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 4. **`DELETE /services/{id}`** es un borrado lógico (`active=false`). Nadie puede reseñar su propio servicio (422 `REVIEW_SELF`).
 5. **`POST /services`** exige que el usuario haya guardado su ubicación (422 `LOCATION_REQUIRED`) y usa esas coordenadas.
 6. **`ChatService.getOrCreate`** está adelantado de la fase 6, para el botón «Mensaje»: crea una conversación por par de vecinos y por contexto (servicio o publicación).
+
+## Fase 6
+
+1. **Migración `V2__chat_read_state.sql`:** agrega `user_a_read_at` y `user_b_read_at` a `conversation` para calcular `unread`.
+   - Se cuentan los mensajes del otro participante y del sistema posteriores a mi última lectura.
+   - Leer (`GET messages`) o escribir marca la conversación como leída.
+2. **`Created<T>`** es el resultado de los POST idempotentes: 201 si el recurso se creó y 200 si ya existía con ese `clientId`.
+3. **El muro** muestra las publicaciones `OPEN` y `MATCHED` de la zona del usuario, filtradas por radio en memoria. Sin zona, la lista está vacía. Para publicar hace falta tener zona (422 `ZONE_REQUIRED`).
+4. **Responder dos veces** a la misma publicación devuelve la misma conversación, sin otro mensaje del sistema ni otra notificación. Nadie puede responder a su propia publicación (422 `POST_SELF`).
+5. **`myFavors`** cuenta todas las respuestas del usuario (histórico). `favorsThisWeek` cuenta las de la zona en los últimos 7 días.
+6. **Notificaciones:**
+   - El aviso de un mensaje nuevo y el envío por SSE se hacen después del commit (`@TransactionalEventListener`).
+   - El aviso al autor de la publicación se hace en línea, porque el servicio de desarrollo solo escribe en el log.
+   - `nearby.notifications.provider` elige `log` (por defecto) o `fcm` (preparado, sin implementar).
+7. **Consultas de conversación separadas** por contexto (publicación, servicio o ninguno), para no comparar parámetros nulos en SQL.
