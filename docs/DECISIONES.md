@@ -82,3 +82,17 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
    - El aviso al autor de la publicación se hace en línea, porque el servicio de desarrollo solo escribe en el log.
    - `nearby.notifications.provider` elige `log` (por defecto) o `fcm` (preparado, sin implementar).
 7. **Consultas de conversación separadas** por contexto (publicación, servicio o ninguno), para no comparar parámetros nulos en SQL.
+
+## Fase 7
+
+1. **`Dispatch` + `DispatchListener`:** todos los avisos (push a usuarios, push a la zona y SMS) se publican como un evento. Se envían con `@Async` después del commit (`@TransactionalEventListener(AFTER_COMMIT)`) y cada envío va en su propio try/catch, así una falla del `SmsGateway` o del push nunca hace fallar el `POST /sos`.
+2. **Destinatarios del SOS** (calculados en la transacción, para que la respuesta traiga los números):
+   - vecinos de la zona a 500 m o menos, según su última ubicación;
+   - todos los `BRIGADIST` de la zona;
+   - los contactos de confianza, por SMS.
+3. **`SosCodec.forSos`** ya genera el código SMS: tipo de SOS (S, F, R, Q, V o X si no hay tipo), 1 persona, la calle más cercana con el número 0 y prioridad `ALTA` (por ejemplo, `NB#SOS!X1@LF0$P:ALTA`). La decodificación queda para la fase 9.
+4. **Zona del SOS:** la del vecino. Si no tiene, la que mejor cubre el punto, para no rechazar nunca un SOS por falta de zona.
+5. **Activación automática:** al crear un SOS se cuentan los SOS `ACTIVE` de la zona dentro de la ventana. La respuesta incluye `zoneEmergencyActivated`.
+6. **`DISMISS`** también apaga la emergencia local. Cuando la Municipalidad cambia el modo, se actualiza `mode_activated_at` y el vecino vuelve a ver el modo.
+7. **`DECLINED`** avisa a los vecinos que están entre 500 m y 1000 m (los que no recibieron el primer aviso).
+8. **`GET /sos/{id}`** está disponible para cualquier usuario autenticado: lo necesitan los vecinos que responden. `GET /sos/nearby` devuelve coordenadas aproximadas.

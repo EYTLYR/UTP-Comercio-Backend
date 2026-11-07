@@ -1,0 +1,57 @@
+### FASE 7 · SOS y modos de la zona (ingresa primero con requests/auth.http)
+@base = http://localhost:8080
+@token = pega-aqui-el-accessToken
+
+### SOS (idempotente por clientId) -> 201 { notifiedNeighbors, contactsNotified, brigadeNotified, smsCode }
+POST {{base}}/api/v1/sos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "clientId": "5f1b0c2a-0000-4000-8000-000000000001", "lat": -11.9790, "lng": -77.0030 }
+
+### Elegir el tipo durante la cuenta regresiva (recalcula el código SMS)
+PATCH {{base}}/api/v1/sos/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "type": "HEALTH" }
+
+### SOS activos cerca de mí
+GET {{base}}/api/v1/sos/nearby?radiusM=1000
+Authorization: Bearer {{token}}
+
+### Responder: GOING | DECLINED | ARRIVED
+POST {{base}}/api/v1/sos/00000000-0000-0000-0000-000000000000/responses
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "status": "GOING" }
+
+### Estoy a salvo / Cancelar
+POST {{base}}/api/v1/sos/00000000-0000-0000-0000-000000000000/safe
+Authorization: Bearer {{token}}
+
+### Check-in en emergencia (SAFE avisa a mis contactos)
+POST {{base}}/api/v1/check-ins
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "status": "SAFE" }
+
+### Mi zona y su modo
+GET {{base}}/api/v1/zones/current
+Authorization: Bearer {{token}}
+
+### Volver a normal solo en mi app (DISMISS) / ACTIVATE_LOCAL_EMERGENCY / CLEAR_LOCAL
+POST {{base}}/api/v1/me/mode
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "action": "DISMISS" }
+
+### Municipalidad (999000000): modo de la zona. PREVENTION con weatherLevel = alerta El Niño
+POST {{base}}/api/v1/admin/zones/00000000-0000-0000-0000-000000000000/mode
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "mode": "PREVENTION", "reason": "Aviso SENAMHI por lluvias intensas", "weatherLevel": "ORANGE" }
