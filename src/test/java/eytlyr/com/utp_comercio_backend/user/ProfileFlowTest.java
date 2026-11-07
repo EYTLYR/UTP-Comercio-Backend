@@ -82,13 +82,19 @@ class ProfileFlowTest {
 	}
 
 	@Test
-	void locationOutsideEveryZoneIs422() throws Exception {
-		Session s = TestAuth.login(mvc, "900000103");
-		putJson(s, "/api/v1/me/location", "{\"lat\":-13.5320,\"lng\":-71.9675}") // Cusco
-				.andExpect(status().isUnprocessableContent())
-				.andExpect(jsonPath("$.code").value(ProfileService.ZONE_NOT_COVERED))
-				.andExpect(jsonPath("$.detail").value("Nearby aún no llega a tu zona"));
-	}
+	void locationOutsideCoverageUsesNearestPilotZoneAndPreservesCoordinates() throws Exception {
+        Session s = TestAuth.login(mvc, "900000103");
+        putJson(s, "/api/v1/me/location", "{\"lat\":-13.5320,\"lng\":-71.9675,\"addressText\":\"Dirección privada en Cusco\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.zone.name").value("Zona 3 · Las Flores"))
+                .andExpect(jsonPath("$.addressText").doesNotExist());
+        assertThat(jdbc.queryForObject("select lat from app_user where id = ?", Double.class, s.userId()))
+                .isEqualTo(-13.5320);
+        assertThat(jdbc.queryForObject("select lng from app_user where id = ?", Double.class, s.userId()))
+                .isEqualTo(-71.9675);
+        assertThat(jdbc.queryForObject("select address_text from app_user where id = ?", String.class, s.userId()))
+                .isEqualTo("Dirección privada en Cusco");
+    }
 
 	// ---------------------------------------------------------------- contactos de confianza
 

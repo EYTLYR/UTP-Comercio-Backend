@@ -39,6 +39,8 @@ Stack:
 
 Los secretos van en **`.env`** (no se sube a git). Cópialo de [.env.example](.env.example) y llena la base de Neon y las credenciales S3. Spring Boot lo lee solo (`spring.config.import`).
 
+En PowerShell puedes iniciar el servicio con `.\mvnw.cmd spring-boot:run`. Se respeta `SPRING_PROFILES_ACTIVE` del `.env` (por ejemplo `local` o `prod,demo`); un perfil indicado con `-Dspring-boot.run.profiles=...` tiene prioridad. Sin esa variable se conserva `dev`; sin Docker usa `local` con la conexión PostgreSQL configurada.
+
 Elige una de estas formas.
 
 **0. Con Neon (base y fotos en la nube, lo normal ahora).** Perfil `local`: usa `DB_URL` y las credenciales S3 del `.env`. Si la base está vacía, Flyway crea las tablas y se cargan los datos de la demo.
