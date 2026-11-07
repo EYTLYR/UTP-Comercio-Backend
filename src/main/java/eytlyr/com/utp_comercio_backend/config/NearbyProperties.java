@@ -25,7 +25,36 @@ public record NearbyProperties(
 		@DefaultValue Ai ai,
 		@DefaultValue Storage storage,
 		@DefaultValue Cors cors,
-		@DefaultValue RateLimit rateLimit) {
+		@DefaultValue RateLimit rateLimit,
+		@DefaultValue Roles roles) {
+
+	/**
+	 * Roles por celular (listas separadas por coma). Al ingresar, esos números quedan como ADMIN
+	 * (Municipalidad) o BRIGADIST. Los demás vecinos se registran como NEIGHBOR.
+	 */
+	public record Roles(String adminPhones, String brigadePhones) {
+
+		public boolean isAdmin(String phone) {
+			return contains(adminPhones, phone);
+		}
+
+		public boolean isBrigade(String phone) {
+			return contains(brigadePhones, phone);
+		}
+
+		private static boolean contains(String list, String phone) {
+			if (list == null || list.isBlank() || phone == null) {
+				return false;
+			}
+			for (String p : list.split(",")) {
+				String digits = p.replaceAll("\\D", "");
+				if (digits.length() >= 9 && digits.substring(digits.length() - 9).equals(phone)) {
+					return true;
+				}
+			}
+			return false;
+		}
+	}
 
 	/** Código SMS de acceso. Aleatorio salvo que devFixedCode esté definido (NEARBY_OTP_DEV_CODE, solo demos). */
 	public record Otp(

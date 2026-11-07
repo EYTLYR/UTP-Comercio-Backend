@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,8 +54,13 @@ import eytlyr.com.utp_comercio_backend.zone.ZoneRepository;
  * Datos de la demo (ANEXO A de docs/BACKEND_PROMPTS.md): Zona 3 · Las Flores, San Juan de Lurigancho.
  * Solo en los perfiles dev y demo (prod,demo para la presentación). Es idempotente: si la zona ya existe no hace nada.
  */
+/**
+ * Solo pruebas (y ./mvnw spring-boot:test-run): carga los datos de ejemplo de la Zona 3. La app real
+ * arranca vacía y solo con los datos base de BaseDataInitializer. Corre antes que BaseDataInitializer.
+ */
 @Component
 @Profile({ "dev", "demo" })
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class DemoDataSeeder implements CommandLineRunner {
 
 	public static final String ZONE_NAME = "Zona 3 · Las Flores";

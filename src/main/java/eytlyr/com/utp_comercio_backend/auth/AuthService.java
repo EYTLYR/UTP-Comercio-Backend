@@ -64,6 +64,8 @@ public class AuthService {
 
 	private final NearbyProperties.Otp otpProps;
 
+	private final NearbyProperties.Roles roles;
+
 	private final Duration refreshTtl;
 
 	public AuthService(OtpCodeRepository otps, RefreshTokenRepository refreshTokens, AppUserRepository users,
@@ -76,6 +78,7 @@ public class AuthService {
 		this.sms = sms;
 		this.clock = clock;
 		this.otpProps = props.otp();
+		this.roles = props.roles();
 		this.refreshTtl = Duration.ofDays(props.refreshTokenDays());
 	}
 
@@ -133,6 +136,13 @@ public class AuthService {
 		AppUser user = isNew
 				? users.save(AppUser.builder().phone(phone).name(NEW_USER_NAME).role(Role.NEIGHBOR).build())
 				: existing;
+		// Municipalidad y brigada se definen por celular (NEARBY_ADMIN_PHONES / NEARBY_BRIGADE_PHONES).
+		if (roles != null && roles.isAdmin(phone)) {
+			user.setRole(Role.ADMIN);
+		}
+		else if (roles != null && roles.isBrigade(phone)) {
+			user.setRole(Role.BRIGADIST);
+		}
 		return issue(user, isNew);
 	}
 

@@ -39,17 +39,17 @@ Stack:
 
 Los secretos van en **`.env`** (no se sube a git). Cópialo de [.env.example](.env.example) y llena la base de Neon y las credenciales S3. Spring Boot lo lee solo (`spring.config.import`).
 
-En PowerShell puedes iniciar el servicio con `.\mvnw.cmd spring-boot:run`. Se respeta `SPRING_PROFILES_ACTIVE` del `.env` (por ejemplo `local` o `prod,demo`); un perfil indicado con `-Dspring-boot.run.profiles=...` tiene prioridad. Sin esa variable se conserva `dev`; sin Docker usa `local` con la conexión PostgreSQL configurada.
+En PowerShell puedes iniciar el servicio con `.\mvnw.cmd spring-boot:run`. Se respeta `SPRING_PROFILES_ACTIVE` del `.env` (por ejemplo `local` o `prod`); un perfil indicado con `-Dspring-boot.run.profiles=...` tiene prioridad. Sin esa variable se conserva `dev`; sin Docker usa `local` con la conexión PostgreSQL configurada.
 
 Elige una de estas formas.
 
-**0. Con Neon (base y fotos en la nube, lo normal ahora).** Perfil `local`: usa `DB_URL` y las credenciales S3 del `.env`. Si la base está vacía, Flyway crea las tablas y se cargan los datos de la demo.
+**0. Con Neon (base y fotos en la nube, lo normal ahora).** Perfil `local`: usa `DB_URL` y las credenciales S3 del `.env`. Si la base está vacía, Flyway crea las tablas y se crean solo los **datos base** (Zona 3 · Las Flores, sus 5 calles y 2 puntos seguros). No hay usuarios precargados: los crean los vecinos al registrarse.
 
 ```bash
 ./mvnw spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-**1. Sin Docker y sin internet.** Usa un PostgreSQL 16 embebido y fotos en memoria, y carga los datos de la demo. Se borra al detener la app.
+**1. Sin Docker y sin internet.** Usa un PostgreSQL 16 embebido y fotos en memoria, y carga los datos de ejemplo de las pruebas (María, la brigada, etc.; solo aquí). Se borra al detener la app.
 
 ```bash
 ./mvnw spring-boot:test-run
@@ -75,7 +75,7 @@ cp .env.example .env   # llena Neon y S3, cambia los secretos
 docker compose -f compose.prod.yaml --env-file .env up -d --build
 ```
 
-- Con `SPRING_PROFILES_ACTIVE=prod,demo` se cargan los datos de la demo.
+- Con la base vacía solo se crean los datos base (zona, calles y puntos seguros); los usuarios son los que se registran.
 - El código SMS es aleatorio. Con `NEARBY_OTP_DEV_CODE=123456` queda fijo: úsalo solo para una demo sin SMS reales.
 
 **Para verificar:**
@@ -99,20 +99,20 @@ Cubren la lógica clave:
 - la sincronización y la cola;
 - el SOS y la autenticación.
 
-## Usuarios demo (Zona 3 · Las Flores)
+## Usuarios y roles
+
+La base arranca **sin usuarios ni publicaciones**: todo lo crean los vecinos que se registran con su celular. Solo existen los datos base que necesita la app (`BaseDataInitializer`): la Zona 3 · Las Flores, sus calles (para los códigos SMS) y los puntos seguros.
 
 El código SMS es **aleatorio** en cada pedido: llega por SMS (`NEARBY_SMS_PROVIDER=gateway`) o, sin SMS reales, aparece en el log del backend (`[SMS → 987 *** 321] Tu código Nearby es …`). Para una demo sin SMS se puede fijar con `NEARBY_OTP_DEV_CODE=123456` en `.env`; entonces `/auth/otp/request` lo devuelve en `devCode`.
 
-| Usuario | Celular | Rol | Para qué sirve en la demo |
-|---|---|---|---|
-| María Quispe | `987654321` | NEIGHBOR | Vecina principal: SOS, muro, reporte de riesgo |
-| Brigada Z3 (Coordinador) | `999000111` | BRIGADIST | Tablero con direcciones exactas, plan de rescate IA, decodificar SMS |
-| Municipalidad SJL | `999000000` | ADMIN | Activa los modos EMERGENCY / PREVENTION de la zona |
-| Julio Quispe | `911000001` | NEIGHBOR | Gasfitería, 48 vistos buenos |
-| Jorge Paredes | `911000009` | NEIGHBOR | Escalera y taladro (misión para la Sra. Teresa) |
-| Familia Ríos | `911000010` | NEIGHBOR | Sacos de arena y motobomba (mitigación El Niño) |
+Todos se registran como vecinos. La Municipalidad y la brigada se definen por celular en `.env` y se aplican al ingresar:
 
-Los otros vecinos están en el ANEXO A de [docs/BACKEND_PROMPTS.md](docs/BACKEND_PROMPTS.md): celulares 911000002 a 911000016.
+```
+NEARBY_ADMIN_PHONES=987654321
+NEARBY_BRIGADE_PHONES=912345678,998877665
+```
+
+Los usuarios de ejemplo (María Quispe `987654321`, Brigada Z3 `999000111`, Municipalidad `999000000`…) solo existen en las pruebas y en `./mvnw spring-boot:test-run` (`src/test/.../seed/DemoDataSeeder.java`).
 
 **Roles:**
 - **NEIGHBOR:** vecino.
@@ -122,7 +122,7 @@ Los otros vecinos están en el ANEXO A de [docs/BACKEND_PROMPTS.md](docs/BACKEND
 
 ## Guion de la demo
 
-[requests/demo.http](requests/demo.http) reproduce todo el flujo contra una base recién creada:
+[requests/demo.http](requests/demo.http) reproduce todo el flujo con los datos de ejemplo, es decir, contra `./mvnw spring-boot:test-run` (con `NEARBY_OTP_DEV_CODE=123456`):
 
 1. **Login** de María, la Brigada y la Municipalidad.
 2. **SOS:** María avisa a 17 vecinos a 500 m o menos, a la brigada y a sus 3 contactos. Recibe el código `NB#SOS!S1@LF0$P:ALTA`.
@@ -176,6 +176,7 @@ Si el SMS del código de ingreso falla y hay código fijo (`NEARBY_OTP_DEV_CODE`
 | `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | Credenciales S3 (Neon) | — / — / — / `us-east-2` |
 | `NEARBY_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `NEARBY_AI_MODEL` | IA con Claude | `rules` / — / `claude-haiku-5-5` |
 | `NEARBY_CORS_ORIGINS` | Orígenes CORS (patrones separados por coma) | `http://localhost:*` |
+| `NEARBY_ADMIN_PHONES`, `NEARBY_BRIGADE_PHONES` | Celulares (separados por coma) que entran como Municipalidad (ADMIN) o brigada (BRIGADIST) | — |
 | `NEARBY_OTP_DEV_CODE` | Código SMS fijo (solo para una demo sin SMS) | — (aleatorio) |
 | `NEARBY_SWAGGER_ENABLED` | Swagger en prod | `false` |
 | `DB_URL`, `DB_USER`, `DB_PASSWORD` | Base de datos (perfiles `local` y `prod`); en Neon, el host con `-pooler` | — |

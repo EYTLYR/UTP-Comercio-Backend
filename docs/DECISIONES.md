@@ -199,3 +199,10 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 - **Fallas:** si el código de ingreso no sale y no hay código fijo, `422 SMS_SEND_FAILED`. Los avisos del SOS que fallan solo quedan en el log: el SOS nunca falla por el proveedor.
 - **160 caracteres:** el SMS del SOS usa coordenadas con 5 decimales para entrar en un solo mensaje.
 - **Código de ingreso aleatorio:** el perfil `dev` ya no fija `123456`. Cada pedido genera 6 dígitos con `SecureRandom`; solo `NEARBY_OTP_DEV_CODE` lo fija (demo sin SMS) y entonces se devuelve en `devCode`. Las pruebas fijan su propio código.
+
+## Base real, sin datos de ejemplo
+
+- **Datos de ejemplo solo en pruebas:** `DemoDataSeeder` pasó a `src/test`. Las pruebas y `spring-boot:test-run` siguen usando la Zona 3 con María, la brigada y el resto; la app real ya no los carga en ningún perfil.
+- **Datos base:** `BaseDataInitializer` crea, solo si no hay ninguna zona, la Zona 3 · Las Flores, sus 5 calles (códigos SMS) y 2 puntos seguros. Sin una zona nadie podría registrarse ("Nearby aún no llega a tu zona"). Corre después del seeder de pruebas, que ya crea la zona, así que en las pruebas no hace nada.
+- **Roles por celular:** como todos se registran como vecinos, `NEARBY_ADMIN_PHONES` y `NEARBY_BRIGADE_PHONES` definen la Municipalidad y la brigada. Se aplican en cada ingreso; no hace falta tocar la base.
+- **Neon:** se vació (todas las tablas menos el historial de Flyway) para empezar con usuarios reales.
