@@ -6,6 +6,9 @@
 spring:
   config:
     import: optional:file:.env[.properties]
+  docker:
+    compose:
+      enabled: ${DOCKER_COMPOSE_ENABLED:false}
   application:
     name: utp-comercio-backend
   profiles:

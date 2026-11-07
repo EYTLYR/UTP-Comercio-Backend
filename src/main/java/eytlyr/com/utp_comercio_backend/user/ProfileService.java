@@ -94,7 +94,7 @@ public class ProfileService {
 		return UserDto.from(user);
 	}
 
-	/** Guarda la ubicación y asigna la zona más cercana que cubre ese punto. */
+	/** Guarda la ubicación y asigna la zona que cubre ese punto o la más cercana si está en fase piloto. */
 	@Transactional
 	public UserDto updateLocation(UUID userId, LocationRequest req) {
 		Zone zone = zones.findAll().stream()
@@ -102,7 +102,9 @@ public class ProfileService {
 				.filter(e -> e.getValue() <= e.getKey().getRadiusM())
 				.min(Map.Entry.comparingByValue())
 				.map(Map.Entry::getKey)
-				.orElseThrow(() -> new BusinessRuleException(ZONE_NOT_COVERED, "Nearby aún no llega a tu zona"));
+				.orElseGet(() -> zones.findAll().stream()
+						.min(Comparator.comparingDouble(z -> GeoUtils.haversineMeters(req.lat(), req.lng(), z.getCenterLat(), z.getCenterLng())))
+						.orElseThrow(() -> new BusinessRuleException(ZONE_NOT_COVERED, "Nearby aún no llega a tu zona")));
 		AppUser user = userService.get(userId);
 		user.setLat(req.lat());
 		user.setLng(req.lng());
