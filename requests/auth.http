@@ -1,9 +1,10 @@
 ### FASE 3 · Ingreso con celular y código SMS (usuaria demo María Quispe)
-# En dev el código siempre es 123456 y también se ve en el log: [SMS → 987654321] ...
+# El código es aleatorio: llega por SMS o se ve en el log ([SMS → 987 *** 321] Tu código Nearby es ...).
+# Para estos archivos, fija NEARBY_OTP_DEV_CODE=123456 en .env y reinicia el backend.
 @base = http://localhost:8080
 @phone = 987654321
 
-### 1. Pedir el código -> 202 { expiresInSeconds: 300, resendInSeconds: 30, devCode: "123456" }
+### 1. Pedir el código -> 202 { expiresInSeconds: 300, resendInSeconds: 30, devCode solo si NEARBY_OTP_DEV_CODE está definido }
 POST {{base}}/api/v1/auth/otp/request
 Content-Type: application/json
 

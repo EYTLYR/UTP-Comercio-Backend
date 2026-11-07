@@ -198,3 +198,4 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 - **Entrante:** el microservicio valida la firma del webhook de sms-gate (HMAC-SHA256) y reenvía el SMS al endpoint que ya existía, `/api/v1/sms/inbound` con `X-Nearby-Token`. El backend no necesita saber de dónde viene.
 - **Fallas:** si el código de ingreso no sale y no hay código fijo, `422 SMS_SEND_FAILED`. Los avisos del SOS que fallan solo quedan en el log: el SOS nunca falla por el proveedor.
 - **160 caracteres:** el SMS del SOS usa coordenadas con 5 decimales para entrar en un solo mensaje.
+- **Código de ingreso aleatorio:** el perfil `dev` ya no fija `123456`. Cada pedido genera 6 dígitos con `SecureRandom`; solo `NEARBY_OTP_DEV_CODE` lo fija (demo sin SMS) y entonces se devuelve en `devCode`. Las pruebas fijan su propio código.

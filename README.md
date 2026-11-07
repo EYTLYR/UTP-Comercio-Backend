@@ -76,7 +76,7 @@ docker compose -f compose.prod.yaml --env-file .env up -d --build
 ```
 
 - Con `SPRING_PROFILES_ACTIVE=prod,demo` se cargan los datos de la demo.
-- Con `NEARBY_OTP_DEV_CODE=123456` el código SMS queda fijo. Úsalo solo para una demo pública.
+- El código SMS es aleatorio. Con `NEARBY_OTP_DEV_CODE=123456` queda fijo: úsalo solo para una demo sin SMS reales.
 
 **Para verificar:**
 - Salud: http://localhost:8080/actuator/health
@@ -101,7 +101,7 @@ Cubren la lógica clave:
 
 ## Usuarios demo (Zona 3 · Las Flores)
 
-En dev el código SMS siempre es **`123456`** (la respuesta de `/auth/otp/request` lo trae en `devCode`).
+El código SMS es **aleatorio** en cada pedido: llega por SMS (`NEARBY_SMS_PROVIDER=gateway`) o, sin SMS reales, aparece en el log del backend (`[SMS → 987 *** 321] Tu código Nearby es …`). Para una demo sin SMS se puede fijar con `NEARBY_OTP_DEV_CODE=123456` en `.env`; entonces `/auth/otp/request` lo devuelve en `devCode`.
 
 | Usuario | Celular | Rol | Para qué sirve en la demo |
 |---|---|---|---|
@@ -158,11 +158,11 @@ Backend ── POST /v1/messages (X-Api-Key) ──► microservicio SMS ──�
 SMS entrante ──► celular ──► microservicio ── POST /api/v1/sms/inbound (X-Nearby-Token) ──► backend
 ```
 
-**Para el equipo:** el microservicio ya corre en la PC de James y se publica en `https://fflx84lw-3000.brs.devtunnels.ms` (valor por defecto de `NEARBY_SMS_GATEWAY_URL`). No hace falta levantarlo: en tu `.env` pon `NEARBY_SMS_PROVIDER=gateway` y `NEARBY_SMS_GATEWAY_API_KEY` (pídele la clave a James; no la subas a git, el repo es público). Si falta la clave, el backend no arranca y lo dice. Si el túnel está apagado, el código de ingreso sigue funcionando con `123456` en dev.
+**Para el equipo:** el microservicio ya corre en la PC de James y se publica en `https://fflx84lw-3000.brs.devtunnels.ms` (valor por defecto de `NEARBY_SMS_GATEWAY_URL`). No hace falta levantarlo: en tu `.env` pon `NEARBY_SMS_PROVIDER=gateway` y `NEARBY_SMS_GATEWAY_API_KEY` (pídele la clave a James; no la subas a git, el repo es público). Si falta la clave, el backend no arranca y lo dice. Si el túnel está apagado, el código no llega por SMS: búscalo en el log del backend o fíjalo con `NEARBY_OTP_DEV_CODE`.
 
 **Para levantarlo tú:** `npm start` en `sms-gateway-demo` (puerto 3000) con el celular conectado, y en el backend `NEARBY_SMS_GATEWAY_URL=http://localhost:3000` con la misma clave que `SERVICE_API_KEY` del microservicio. Los SMS entrantes se reenvían a `FORWARD_URL` (`http://localhost:8080/api/v1/sms/inbound`) con `FORWARD_TOKEN` igual a `NEARBY_SMS_INBOUND_TOKEN` del backend: llegan al backend de quien corre el microservicio.
 
-Si el SMS del código de ingreso falla y hay código fijo (dev/demo), igual se puede entrar con ese código; sin código fijo la API responde `422 SMS_SEND_FAILED`. Los avisos del SOS que fallan se registran en el log y no detienen el SOS.
+Si el SMS del código de ingreso falla y hay código fijo (`NEARBY_OTP_DEV_CODE`), igual se puede entrar con ese código; sin código fijo la API responde `422 SMS_SEND_FAILED`. Los avisos del SOS que fallan se registran en el log y no detienen el SOS.
 
 ## Variables de entorno
 
@@ -176,7 +176,7 @@ Si el SMS del código de ingreso falla y hay código fijo (dev/demo), igual se p
 | `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | Credenciales S3 (Neon) | — / — / — / `us-east-2` |
 | `NEARBY_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `NEARBY_AI_MODEL` | IA con Claude | `rules` / — / `claude-haiku-5-5` |
 | `NEARBY_CORS_ORIGINS` | Orígenes CORS (patrones separados por coma) | `http://localhost:*` |
-| `NEARBY_OTP_DEV_CODE` | Código SMS fijo en prod (solo para una demo) | — (en dev es `123456`) |
+| `NEARBY_OTP_DEV_CODE` | Código SMS fijo (solo para una demo sin SMS) | — (aleatorio) |
 | `NEARBY_SWAGGER_ENABLED` | Swagger en prod | `false` |
 | `DB_URL`, `DB_USER`, `DB_PASSWORD` | Base de datos (perfiles `local` y `prod`); en Neon, el host con `-pooler` | — |
 | `DB_MIGRATION_URL` | Conexión directa (sin `-pooler`) para Flyway | `DB_URL` |

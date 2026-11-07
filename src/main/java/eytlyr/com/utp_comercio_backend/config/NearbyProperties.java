@@ -27,7 +27,7 @@ public record NearbyProperties(
 		@DefaultValue Cors cors,
 		@DefaultValue RateLimit rateLimit) {
 
-	/** Código SMS de acceso. devFixedCode solo se define en el perfil dev. */
+	/** Código SMS de acceso. Aleatorio salvo que devFixedCode esté definido (NEARBY_OTP_DEV_CODE, solo demos). */
 	public record Otp(
 			@DefaultValue("6") @Min(4) int length,
 			@DefaultValue("5") @Min(1) int expiryMinutes,

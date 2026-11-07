@@ -5,7 +5,7 @@
 ### ============================================================================
 @base = http://localhost:8080
 
-### 1) LOGIN · María Quispe (vecina). En dev el código siempre es 123456.
+### 1) LOGIN · María Quispe (vecina). Requiere NEARBY_OTP_DEV_CODE=123456 en .env (si no, usa el código del SMS o del log).
 POST {{base}}/api/v1/auth/otp/request
 Content-Type: application/json
 

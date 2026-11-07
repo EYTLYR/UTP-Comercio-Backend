@@ -103,7 +103,9 @@ spring:
 nearby:
   jwt-secret: ${NEARBY_JWT_SECRET:dev-only-nearby-secret-0123456789-abcdef}
   otp:
-    dev-fixed-code: "123456"
+    # Vacío = código aleatorio en cada pedido (llega por SMS o, sin SMS reales, se ve en el log).
+    # Solo para una demo sin SMS se puede fijar: NEARBY_OTP_DEV_CODE=123456 en .env.
+    dev-fixed-code: ${NEARBY_OTP_DEV_CODE:}
   sms:
     inbound-token: ${NEARBY_SMS_INBOUND_TOKEN:dev-sms-token}
   cors:

@@ -10,7 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Ingreso por OTP (perfil dev, código 123456) para las pruebas de integración. */
+/** Ingreso por OTP para las pruebas de integración (código fijo 123456 solo en las pruebas). */
 public final class TestAuth {
 
 	public static final String DEV_CODE = "123456";
