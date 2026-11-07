@@ -15,6 +15,8 @@ public interface CapabilityRepository extends JpaRepository<Capability, UUID> {
 
 	Optional<Capability> findByIdAndUserId(UUID id, UUID userId);
 
+	List<Capability> findByZoneIdAndTagInAndRemovedByUserFalse(UUID zoneId, java.util.Collection<CapabilityTag> tags);
+
 	/** El vecino retiró su consentimiento: todo lo aprendido de él queda fuera del inventario. */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("update Capability c set c.removedByUser = true where c.user.id = :userId and c.removedByUser = false")

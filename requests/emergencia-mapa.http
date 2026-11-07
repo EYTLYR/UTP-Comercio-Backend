@@ -1,0 +1,45 @@
+### FASE 8 · Emergencia: tablero, recursos, grupos, puntos seguros y mapa (ingresa con requests/auth.http)
+@base = http://localhost:8080
+@token = pega-aqui-el-accessToken
+
+### Resumen del tablero (usa el id de GET /api/v1/zones/current)
+GET {{base}}/api/v1/zones/00000000-0000-0000-0000-000000000000/dashboard
+Authorization: Bearer {{token}}
+
+### Reportes vulnerables (vecino: dirección sin número y ubicación aproximada; brigada: exacta)
+GET {{base}}/api/v1/vulnerable-reports
+Authorization: Bearer {{token}}
+
+### Reportar (idempotente por clientId; avisa a la brigada)
+POST {{base}}/api/v1/vulnerable-reports
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "clientId": "9c4d2f10-0000-4000-8000-000000000001", "category": "TRAPPED", "detail": "Se cayó la pared, hay una persona atrapada", "addressText": "Jr. Los Pinos 340" }
+
+### Voy yo
+POST {{base}}/api/v1/vulnerable-reports/00000000-0000-0000-0000-000000000000/assign
+Authorization: Bearer {{token}}
+
+### Recursos críticos: resumen y listados
+GET {{base}}/api/v1/resources/summary
+Authorization: Bearer {{token}}
+
+###
+POST {{base}}/api/v1/resources
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "resourceType": "WATER", "kind": "HAVE", "text": "Bidón de 20 litros", "quantity": 1 }
+
+### Grupos de apoyo / unirme
+GET {{base}}/api/v1/support-groups
+Authorization: Bearer {{token}}
+
+### Puntos seguros
+GET {{base}}/api/v1/safe-points
+Authorization: Bearer {{token}}
+
+### Mapa: layer = daily | emergency | prevention
+GET {{base}}/api/v1/map/pins?layer=emergency&radiusM=1500
+Authorization: Bearer {{token}}

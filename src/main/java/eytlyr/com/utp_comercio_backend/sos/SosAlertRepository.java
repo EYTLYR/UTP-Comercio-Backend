@@ -21,6 +21,8 @@ public interface SosAlertRepository extends JpaRepository<SosAlert, UUID> {
 	@Query("select a from SosAlert a where a.id = :id")
 	Optional<SosAlert> findWithUser(@Param("id") UUID id);
 
+	long countByZoneIdAndStatus(UUID zoneId, SosStatus status);
+
 	long countByZoneIdAndStatusAndCreatedAtAfter(UUID zoneId, SosStatus status, OffsetDateTime since);
 
 	@Query("select a from SosAlert a join fetch a.user where a.zone.id = :zoneId and a.status = :status")

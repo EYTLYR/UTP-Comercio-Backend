@@ -96,3 +96,15 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 6. **`DISMISS`** también apaga la emergencia local. Cuando la Municipalidad cambia el modo, se actualiza `mode_activated_at` y el vecino vuelve a ver el modo.
 7. **`DECLINED`** avisa a los vecinos que están entre 500 m y 1000 m (los que no recibieron el primer aviso).
 8. **`GET /sos/{id}`** está disponible para cualquier usuario autenticado: lo necesitan los vecinos que responden. `GET /sos/nearby` devuelve coordenadas aproximadas.
+
+## Fase 8
+
+1. **Privacidad del tablero:** a un `NEIGHBOR` se le quita el número de la dirección («Mz. C lote 12» → «Mz. C», «Jr. Los Pinos 340» → «Jr. Los Pinos») y se le envían coordenadas redondeadas a 3 decimales. El DTO nunca incluye a quien reportó. `exactLocation` indica qué versión llega.
+2. **Prioridad por defecto de un reporte:** `HIGH` para herido, atrapado, dependiente de oxígeno, niños solos y adulto mayor solo; `MEDIUM` para discapacidad y gestante. Si no hay detalle, se usa el nombre de la categoría.
+3. **El orden del tablero** (prioridad alta primero) se calcula en Java, porque comparar enums con literales en JPQL es frágil.
+4. **El resumen de recursos** siempre devuelve los 6 tipos. Suma `quantity`, y si un listado no tiene cantidad cuenta como 1.
+5. **`resource_listing` no tiene `client_id`**, así que `POST /resources` no es idempotente. Si hace falta, se agrega con una migración V3.
+6. **Capas del mapa:**
+   - Los grupos de apoyo se ubican en el centro de la zona, porque no tienen coordenadas propias.
+   - La capa `prevention` ya incluye los reportes de riesgo de las últimas 24 h, las capacidades de mitigación de la IA (fase 9) y los listados de mitigación que dicen «tengo».
+7. **Íconos:** las categorías tienen `label()` en español (vulnerables, recursos, mitigación y riesgos) y los pines usan nombres de Material Symbols.
