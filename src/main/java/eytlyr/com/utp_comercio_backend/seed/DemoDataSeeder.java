@@ -159,7 +159,7 @@ public class DemoDataSeeder implements CommandLineRunner {
 				.user(maria)
 				.bloodType("O+")
 				.allergies("Penicilina")
-				.livesWith("Adulto mayor")
+				.livesWith("ELDERLY")
 				.build());
 	}
 

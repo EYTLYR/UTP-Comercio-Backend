@@ -1,0 +1,92 @@
+### FASE 4 · Perfil del vecino (María Quispe). Primero ingresa con requests/auth.http o con estos dos pasos.
+@base = http://localhost:8080
+
+POST {{base}}/api/v1/auth/otp/request
+Content-Type: application/json
+
+{ "phone": "987654321" }
+
+###
+# @name login
+POST {{base}}/api/v1/auth/otp/verify
+Content-Type: application/json
+
+{ "phone": "987654321", "code": "123456" }
+
+### Mi perfil (effectiveMode = modo que la app debe mostrar)
+GET {{base}}/api/v1/me
+Authorization: Bearer {{login.response.body.accessToken}}
+
+### Cambiar mi nombre
+PUT {{base}}/api/v1/me
+Authorization: Bearer {{login.response.body.accessToken}}
+Content-Type: application/json
+
+{ "name": "María Quispe" }
+
+### Mi ubicación -> asigna la Zona 3 · Las Flores (fuera de cobertura: 422 ZONE_NOT_COVERED)
+PUT {{base}}/api/v1/me/location
+Authorization: Bearer {{login.response.body.accessToken}}
+Content-Type: application/json
+
+{ "lat": -11.9790, "lng": -77.0030, "addressText": "Jr. Las Flores 120" }
+
+### Contactos de confianza (máximo 3)
+GET {{base}}/api/v1/me/trusted-contacts
+Authorization: Bearer {{login.response.body.accessToken}}
+
+###
+PUT {{base}}/api/v1/me/trusted-contacts
+Authorization: Bearer {{login.response.body.accessToken}}
+Content-Type: application/json
+
+[
+  { "name": "Mamá", "phone": "987000120", "position": 1 },
+  { "name": "Carlos", "phone": "956000447", "position": 2 },
+  { "name": "Sra. Rosa", "phone": "944000908", "position": 3 }
+]
+
+### Ficha médica (solo la ves tú; la brigada solo durante un SOS)
+GET {{base}}/api/v1/me/medical-card
+Authorization: Bearer {{login.response.body.accessToken}}
+
+###
+PUT {{base}}/api/v1/me/medical-card
+Authorization: Bearer {{login.response.body.accessToken}}
+Content-Type: application/json
+
+{ "bloodType": "O+", "allergies": "Penicilina", "conditions": null, "livesWith": ["ELDERLY"] }
+
+### Token de notificaciones del teléfono -> 204
+PUT {{base}}/api/v1/me/device-token
+Authorization: Bearer {{login.response.body.accessToken}}
+Content-Type: application/json
+
+{ "token": "fcm-token-de-prueba", "platform": "ANDROID" }
+
+### Lo que la IA aprendió de mí (se llena en la FASE 9)
+GET {{base}}/api/v1/me/ai-learnings
+Authorization: Bearer {{login.response.body.accessToken}}
+
+### Retirar el consentimiento de IA (borra lo aprendido)
+PUT {{base}}/api/v1/me/settings
+Authorization: Bearer {{login.response.body.accessToken}}
+Content-Type: application/json
+
+{ "aiConsent": true }
+
+### "Prepara tu casa" (El Niño)
+GET {{base}}/api/v1/me/prep-checklist
+Authorization: Bearer {{login.response.body.accessToken}}
+
+###
+PUT {{base}}/api/v1/me/prep-checklist
+Authorization: Bearer {{login.response.body.accessToken}}
+Content-Type: application/json
+
+[ { "itemKey": "GO_BAG", "done": true }, { "itemKey": "SAFE_POINT", "done": true } ]
+
+### Brigada: ficha médica de una persona (403 si no tiene SOS activo ni reporte abierto)
+# Ingresa como 999000111 y reemplaza el id.
+GET {{base}}/api/v1/brigade/medical-cards/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{login.response.body.accessToken}}

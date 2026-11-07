@@ -45,3 +45,14 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 7. **Claim `iss` = `nearby-api`.** Spring Security 7 agrega la autoridad `FACTOR_BEARER` junto a `ROLE_<rol>`, y eso es normal.
 8. **Validación:** cuando hay un solo error, `detail` es ese mensaje (por ejemplo, «Los celulares en Perú tienen 9 dígitos y empiezan con 9»), para que la app lo muestre tal cual.
 9. **SMS:** `nearby.sms.provider` elige `console` (por defecto) o `twilio` (preparado, sin implementar).
+
+## Fase 4
+
+1. **Ficha médica para la brigada:** «tiene un reporte vulnerable abierto» se interpreta como un `vulnerable_report` donde la persona es quien reporta (`reporter_id`), en estado `PENDING` u `ON_THE_WAY`. El reporte no guarda a quién se refiere. La otra vía es tener un `sos_alert` `ACTIVE`. Si no se cumple ninguna, se responde 403 `MEDICAL_CARD_NOT_AVAILABLE`.
+2. **`PUT /me/location`** elige la zona más cercana cuyo radio cubre el punto. La dirección se guarda, pero ninguna respuesta la devuelve. El JWT ya emitido conserva el `zoneId` anterior: la app debe llamar a `/auth/refresh` después de cambiar de zona.
+3. **`PUT /me/trusted-contacts`** reemplaza la lista completa. Si un contacto viene sin `position`, se usa su orden en la lista. Más de 3 contactos devuelve 422 `TRUSTED_CONTACTS_MAX` y una posición repetida, 422 `TRUSTED_CONTACTS_POSITION`. Si hay error, la lista anterior no cambia.
+4. **`livesWith`** se guarda separado por comas, con estos valores: `ELDERLY`, `CHILDREN`, `DISABILITY` y `PETS`. En la ficha de María, el seeder ahora usa `ELDERLY`.
+5. **`GET /me/medical-card`** sin ficha devuelve una vacía (200), no un 404.
+6. **`PUT /me/device-token`:** un token pertenece a un solo teléfono. Si ya estaba registrado con otra cuenta, pasa a la cuenta actual.
+7. **`GET /me/prep-checklist`** siempre devuelve los 4 ítems en orden. `PUT` actualiza solo los ítems enviados.
+8. **`CapabilityTag`** tiene `label()` con el nombre en español.
