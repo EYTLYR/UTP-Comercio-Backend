@@ -43,6 +43,7 @@ public class SecurityConfig {
 	static final String[] PUBLIC_PATHS = {
 			"/api/v1/auth/**",
 			"/api/v1/sms/inbound", // protegido con X-Nearby-Token (SmsService)
+			"/api/v1/sms/inbound/twilio", // protegido con la firma X-Twilio-Signature (TwilioWebhookController)
 			"/files/**", // fotos de reportes de riesgo (nombres aleatorios)
 			"/actuator/health", "/actuator/health/**",
 			"/v3/api-docs", "/v3/api-docs/**",

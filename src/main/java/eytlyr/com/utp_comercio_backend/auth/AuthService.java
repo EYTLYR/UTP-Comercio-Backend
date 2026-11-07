@@ -7,12 +7,16 @@ import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import eytlyr.com.utp_comercio_backend.auth.dto.AuthDtos.AuthResponse;
 import eytlyr.com.utp_comercio_backend.auth.dto.AuthDtos.OtpRequestResponse;
 import eytlyr.com.utp_comercio_backend.common.ApiException;
+import eytlyr.com.utp_comercio_backend.common.BusinessRuleException;
+import eytlyr.com.utp_comercio_backend.common.TextUtils;
 import eytlyr.com.utp_comercio_backend.common.TooManyRequestsException;
 import eytlyr.com.utp_comercio_backend.common.UnauthorizedException;
 import eytlyr.com.utp_comercio_backend.config.NearbyProperties;
@@ -25,6 +29,8 @@ import eytlyr.com.utp_comercio_backend.user.dto.UserDto;
 /** Acceso sin contraseña: código SMS de un solo uso, token de acceso JWT y token de refresco rotativo. */
 @Service
 public class AuthService {
+
+	private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
 	public static final String OTP_INVALID = "OTP_INVALID";
 
@@ -89,7 +95,17 @@ public class AuthService {
 				.codeHash(hasher.hash(phone + ":" + code))
 				.expiresAt(now.plusSeconds(ttl))
 				.build());
-		sms.send(phone, "Tu código Nearby es " + code + ". No lo compartas.");
+		try {
+			sms.send(phone, "Tu código Nearby es " + code + ". No lo compartas.");
+		}
+		catch (RuntimeException ex) {
+			// Con código fijo (dev/demo) se puede seguir; sin él, el vecino nunca recibiría el código.
+			log.warn("No se pudo enviar el código a {}: {}", TextUtils.maskPhone(phone), ex.getMessage());
+			if (!isDev()) {
+				throw new BusinessRuleException("SMS_SEND_FAILED",
+						"No pudimos enviar el SMS a ese número. Inténtalo en unos minutos.");
+			}
+		}
 		return new OtpRequestResponse(ttl, RESEND_SECONDS, isDev() ? code : null);
 	}
 

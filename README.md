@@ -139,12 +139,23 @@ Hay un archivo `.http` por módulo en [requests/](requests/): auth, perfil, serv
 
 | Integración | En dev (por defecto) | Real |
 |---|---|---|
-| SMS (OTP y avisos) | `ConsoleSmsGateway`: escribe en el log, con el celular enmascarado | `NEARBY_SMS_PROVIDER=twilio` (preparado en `TwilioSmsGateway`) |
+| SMS (OTP y avisos) | `ConsoleSmsGateway`: escribe en el log, con el celular enmascarado | `NEARBY_SMS_PROVIDER=twilio` + `TWILIO_*` (API REST de Twilio, ver abajo) |
+| SMS entrante (SOS sin internet) | `POST /api/v1/sms/inbound` con `X-Nearby-Token` | Webhook de Twilio `POST /api/v1/sms/inbound/twilio` (firma `X-Twilio-Signature`, responde TwiML) |
 | Push | `LoggingNotificationService`: escribe en el log | `NEARBY_NOTIFICATIONS_PROVIDER=fcm` (preparado en `FcmNotificationService`) |
 | IA de texto (inventario) | Reglas del ANEXO B | `NEARBY_AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` (Claude `claude-haiku-5-5`, con respaldo de reglas) |
 | IA de visión (fotos El Niño) | Texto PHOTO_AI según la categoría | Lo mismo que la IA de texto: Claude con visión y respaldo de reglas |
 | Fotos | Neon Object Storage (S3, bucket privado `nearby`, carpeta `risk-photos/`), servidas por la API en `/files/...` | Igual; sirve cualquier S3 (AWS, R2, MinIO) cambiando `AWS_ENDPOINT_URL_S3` |
 | Aviso meteorológico | Lo ingresa la Municipalidad en `/admin/zones/{id}/mode` | Leerlo de una fuente oficial (SENAMHI) |
+
+## SMS reales con Twilio
+
+1. **Número de Twilio** (el remitente): en la consola, *Phone Numbers → Manage → Buy a number* (la cuenta de prueba trae uno gratis; elige uno de EE. UU. con SMS). Ponlo en `TWILIO_FROM` (formato `+1...`).
+2. **Perú habilitado:** *Messaging → Settings → Geo permissions* → marca **Peru**.
+3. **Números que reciben** (solo en cuenta de prueba): *Phone Numbers → Manage → Verified Caller IDs → Add a new Caller ID*, con `+51` y el celular. Twilio manda un código para confirmarlo. A los números no verificados el envío falla (error 21608).
+4. **Activar:** en `.env`, `NEARBY_SMS_PROVIDER=twilio` y reinicia el backend. Si falta alguna variable, el backend no arranca y lo dice.
+5. **SOS sin internet (entrante):** en el número de Twilio, *Messaging configuration → A message comes in → Webhook*, `POST` a `https://<tu-api>/api/v1/sms/inbound/twilio`. La misma URL va en `NEARBY_TWILIO_WEBHOOK_URL`. El backend debe estar publicado (Railway/Render) o detrás de un túnel (ngrok).
+
+Si el SMS del código de ingreso falla y hay código fijo (dev/demo), igual se puede entrar con ese código; sin código fijo la API responde `422 SMS_SEND_FAILED`. Los avisos del SOS que fallan se registran en el log y no detienen el SOS.
 
 ## Variables de entorno
 
@@ -152,6 +163,8 @@ Hay un archivo `.http` por módulo en [requests/](requests/): auth, perfil, serv
 |---|---|---|
 | `NEARBY_JWT_SECRET` | Secreto HS256 (32 caracteres o más) | Valor de desarrollo |
 | `NEARBY_SMS_INBOUND_TOKEN` | Token del webhook `/api/v1/sms/inbound` | `dev-sms-token` |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | Cuenta y número de Twilio (con `NEARBY_SMS_PROVIDER=twilio`) | — |
+| `NEARBY_TWILIO_WEBHOOK_URL` | URL pública del webhook de Twilio (para validar la firma) | URL de la petición |
 | `NEARBY_SMS_PROVIDER` / `NEARBY_NOTIFICATIONS_PROVIDER` | Proveedores reales | `console` / `log` |
 | `NEARBY_STORAGE_PROVIDER`, `NEARBY_S3_BUCKET`, `NEARBY_S3_PREFIX` | Fotos en S3 | `s3` / — / `risk-photos/` |
 | `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | Credenciales S3 (Neon) | — / — / — / `us-east-2` |

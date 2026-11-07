@@ -65,6 +65,11 @@ nearby:
   sms:
     provider: ${NEARBY_SMS_PROVIDER:console}
     inbound-token: ${NEARBY_SMS_INBOUND_TOKEN:}
+    twilio:
+      account-sid: ${TWILIO_ACCOUNT_SID:}
+      auth-token: ${TWILIO_AUTH_TOKEN:}
+      from: ${TWILIO_FROM:}
+      webhook-url: ${NEARBY_TWILIO_WEBHOOK_URL:}
   emergency:
     auto-activate-sos-count: 5
     auto-activate-window-minutes: 10

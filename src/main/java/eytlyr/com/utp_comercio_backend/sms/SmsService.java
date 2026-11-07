@@ -111,6 +111,12 @@ public class SmsService {
 				|| !MessageDigest.isEqual(token.getBytes(StandardCharsets.UTF_8), inboundToken.getBytes(StandardCharsets.UTF_8))) {
 			throw new UnauthorizedException("SMS_TOKEN_INVALID", "Token del webhook inválido.");
 		}
+		return receive(sms);
+	}
+
+	/** SMS que ya pasó la verificación de origen (token propio o firma de Twilio). */
+	@Transactional
+	public InboundResult receive(InboundSms sms) {
 		Matcher m = SosCodec.CODE_IN_TEXT.matcher(sms.body() == null ? "" : sms.body().toUpperCase());
 		if (!m.find()) {
 			return new InboundResult(true, false, null, null);

@@ -36,8 +36,18 @@ public record NearbyProperties(
 			String devFixedCode) {
 	}
 
-	/** provider: "console" (log, por defecto) o "twilio". inboundToken protege el webhook /api/v1/sms/inbound. */
-	public record Sms(@DefaultValue("console") String provider, String inboundToken) {
+	/**
+	 * provider: "console" (log, por defecto) o "twilio". inboundToken protege el webhook /api/v1/sms/inbound;
+	 * el de Twilio (/api/v1/sms/inbound/twilio) se valida con la firma X-Twilio-Signature.
+	 */
+	public record Sms(@DefaultValue("console") String provider, String inboundToken, @DefaultValue Twilio twilio) {
+
+		/**
+		 * Cuenta de Twilio. from: número de Twilio en formato E.164 (+1...). webhookUrl: URL pública exacta
+		 * configurada en Twilio (detrás de un proxy la URL que ve la app no coincide y la firma fallaría).
+		 */
+		public record Twilio(String accountSid, String authToken, String from, String webhookUrl) {
+		}
 	}
 
 	/** Activación automática del modo emergencia por cantidad de SOS en una ventana de tiempo. */

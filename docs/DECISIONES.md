@@ -189,3 +189,10 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 - **Bucket privado:** la API sirve cada foto en `/files/{uuid}.jpg`. Así la URL guardada en el reporte no caduca (una URL firmada sí) y no hay que abrir el bucket al público. Solo se aceptan nombres generados por la API.
 - **Sin carpeta local:** se quitó `LocalStorageService`. Las pruebas usan `MemoryStorageService` (`nearby.storage.provider=memory`) y no tocan Neon.
 - **Secretos:** en `.env` (ignorado por git), que leen Spring Boot (`spring.config.import: optional:file:.env[.properties]`) y `docker compose --env-file`.
+
+## SMS reales con Twilio
+
+- **Envío:** `TwilioSmsGateway` usa la API REST de Twilio con `java.net.http` (sin SDK): formulario `To`, `From`, `Body` y autenticación básica. Los celulares se envían como `+51` y 9 dígitos.
+- **Fallas:** si Twilio rechaza el código de ingreso y no hay código fijo, la API responde `422 SMS_SEND_FAILED`. Los avisos del SOS que fallan solo quedan en el log: el SOS nunca falla por el proveedor.
+- **Entrante:** Twilio no puede mandar `X-Nearby-Token`, así que tiene su propio webhook (`/api/v1/sms/inbound/twilio`) que valida la firma `X-Twilio-Signature` (HMAC-SHA1 de la URL y los parámetros con el Auth Token). Detrás de un proxy la URL que ve la app cambia, por eso se puede fijar con `NEARBY_TWILIO_WEBHOOK_URL`.
+- **Respuesta:** TwiML. Si el SMS trae un código válido, se crea el reporte y se contesta «Nearby recibió tu SOS».
