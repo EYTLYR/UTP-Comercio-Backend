@@ -225,3 +225,8 @@ Detalle en [IA_GEMINI_Y_SMS.md](IA_GEMINI_Y_SMS.md).
 - **Gemini como tercer proveedor de IA** (`nearby.ai.provider=gemini`), al lado de `rules` y `anthropic`. Cubre la foto de riesgo y el micrófono. Llama a la API REST con `RestClient` (sin SDK) y pide JSON. Si falla, tarda más de 8 s o el circuit breaker está abierto (3 fallas seguidas → 60 s sin llamar), responden las reglas: nunca un 500. El índice de capacidades y el plan de rescate siguen con reglas cuando el proveedor es `gemini`.
 - **El micrófono valida lo que responde Gemini:** solo acepta tipos y categorías que la app conoce para el modo de la zona; si no, usa las reglas.
 - **`HttpSmsGateway`** reemplaza a `GatewaySmsGateway`: `RestClient`, 2 reintentos ante errores de red, 5xx o 429 (un 4xx no se reintenta) y un log `CRÍTICO` si no sale. `nearby.sms.provider=http`; se acepta `gateway` para no romper los `.env` del equipo. El SOS no se ve afectado: los SMS salen después del commit y en segundo plano (`DispatchListener`).
+
+## Código SMS fijo bloqueado en producción
+
+- `AuthService` decide al arrancar si se permite el código fijo (`NEARBY_OTP_DEV_CODE`): solo si hay un código, está activo el perfil `dev` o `local` y **no** está activo `prod`. Con `prod` el código siempre es aleatorio y `devCode` nunca sale en la respuesta, aunque la variable llegue por error al servidor (en ese caso se avisa en el log).
+- Se quitó `dev-fixed-code` del perfil `prod` en `application.yml` y `NEARBY_OTP_DEV_CODE` de `compose.prod.yaml`.

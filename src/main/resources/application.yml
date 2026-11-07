@@ -155,10 +155,8 @@ spring:
     url: ${DB_MIGRATION_URL:${DB_URL}}
     user: ${DB_USER}
     password: ${DB_PASSWORD}
-nearby:
-  otp:
-    # Vacío = códigos aleatorios por SMS. Solo para una demo pública se puede fijar (NEARBY_OTP_DEV_CODE).
-    dev-fixed-code: ${NEARBY_OTP_DEV_CODE:}
+# Sin nearby.otp.dev-fixed-code: en prod los códigos SMS siempre son aleatorios y nunca se devuelven
+# en la respuesta (AuthService lo ignora con prod aunque llegue por variable de entorno).
 springdoc:
   swagger-ui:
     enabled: ${NEARBY_SWAGGER_ENABLED:false}

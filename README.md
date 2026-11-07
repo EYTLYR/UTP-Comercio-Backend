@@ -76,7 +76,7 @@ docker compose -f compose.prod.yaml --env-file .env up -d --build
 ```
 
 - Con la base vacía solo se crean los datos base (zona, calles y puntos seguros); los usuarios son los que se registran.
-- El código SMS es aleatorio. Con `NEARBY_OTP_DEV_CODE=123456` queda fijo: úsalo solo para una demo sin SMS reales.
+- El código SMS es aleatorio y nunca se devuelve en la respuesta: con el perfil `prod`, `NEARBY_OTP_DEV_CODE` se ignora siempre.
 
 **Para verificar:**
 - Salud: http://localhost:8080/actuator/health
@@ -181,7 +181,7 @@ Si el SMS del código de ingreso falla y hay código fijo (`NEARBY_OTP_DEV_CODE`
 | `GEMINI_API_KEY`, `NEARBY_GEMINI_MODEL`, `NEARBY_GEMINI_TIMEOUT_SECONDS` | IA con Gemini (`NEARBY_AI_PROVIDER=gemini`) | — / `gemini-2.5-flash` / `8` |
 | `NEARBY_CORS_ORIGINS` | Orígenes CORS (patrones separados por coma) | `http://localhost:*` |
 | `NEARBY_ADMIN_PHONES`, `NEARBY_BRIGADE_PHONES` | Celulares (separados por coma) que entran como Municipalidad (ADMIN) o brigada (BRIGADIST) | — |
-| `NEARBY_OTP_DEV_CODE` | Código SMS fijo (solo para una demo sin SMS) | — (aleatorio) |
+| `NEARBY_OTP_DEV_CODE` | Código SMS fijo para pruebas sin SMS. Solo funciona con el perfil `dev` o `local`; con `prod` se ignora | — (aleatorio) |
 | `NEARBY_SWAGGER_ENABLED` | Swagger en prod | `false` |
 | `DB_URL`, `DB_USER`, `DB_PASSWORD` | Base de datos (perfiles `local` y `prod`); en Neon, el host con `-pooler` | — |
 | `DB_MIGRATION_URL` | Conexión directa (sin `-pooler`) para Flyway | `DB_URL` |
