@@ -1,46 +1,77 @@
 # Nearby API (UTP-Comercio-Backend)
 
-Backend de **Nearby**, la app de vecinos de San Juan de Lurigancho. Cubre:
-- servicios de proximidad con Visto Bueno Vecinal;
-- cadena de favores;
-- modo prevención (El Niño);
-- modo emergencia (SOS, tablero humanitario, Protocolo Lázaro).
+Backend de **Nearby**, la app de vecinos de San Juan de Lurigancho. Sirve para:
+- conseguir productos y servicios recomendados por otros vecinos («Visto Bueno Vecinal»);
+- hacer favores sin dinero;
+- coordinar la ayuda cuando hay una emergencia (sismo, huaico) o en prevención ante el Fenómeno El Niño.
 
-Stack: Java 21 · Spring Boot 4.1 · PostgreSQL 16 · Flyway · Spring Security (JWT HS256) · springdoc.
+Stack:
+- Java 21 · Spring Boot 4.1 · PostgreSQL 16 · Flyway · Spring Security (JWT HS256) · springdoc.
+- IA por reglas, o con Claude (SDK oficial de Anthropic) si se activa.
 
-## Requisitos
+## Arquitectura
 
-- **Java 21.** No hace falta instalar Maven: el proyecto trae `mvnw`.
-- **Docker Desktop**, que es opcional. Sin Docker hay otras dos formas de correr la app (ver abajo).
+```text
+ App Flutter (online / offline)                      Pasarela SMS
+   │  JWT · JSON · SSE · sync/outbox                    │  POST /sms/inbound (X-Nearby-Token)
+   ▼                                                    ▼
+┌──────────────────────────────── Nearby API (Spring Boot) ─────────────────────────────────┐
+│ auth · user · zone ─ modos NORMAL / PREVENTION / EMERGENCY por zona y por vecino          │
+│ services (Visto Bueno) · posts (cadena de favores) · chat (polling + SSE)                │
+│ sos (SOS, respuestas, check-ins, activación automática) · emergency (tablero, recursos)   │
+│ ai  ─ Protocolo Lázaro: inventario → plan de rescate → misiones · micrófono inteligente   │
+│ sms ─ código NB#SOS! (≤ 25 caracteres) · prevention ─ radar El Niño, calor, mitigación    │
+│ sync ─ paquete offline + cola · map · notification · storage                              │
+│                                                                                           │
+│ Dispatch (después del commit, @Async) ──► NotificationService (log | FCM)                 │
+│                                       └─► SmsGateway (console | Twilio)                   │
+│ CapabilityExtractor / PhotoRiskAnalyzer ──► reglas  |  Claude (claude-haiku-5-5)          │
+└───────────────────────────────────────────┬───────────────────────────────────────────────┘
+                                            ▼
+                          PostgreSQL 16 (Flyway V1..V3) · fotos en ./uploads (o S3)
+```
+
+- **Paquetes por funcionalidad:** cada uno tiene su entidad, repositorio, servicio, controlador y `dto/`.
+- **Errores:** siempre en formato ProblemDetail, con `code` estable y mensajes en español.
+- **Sin conexión:** todo POST que se crea desde el teléfono es idempotente por `clientId`.
 
 ## Cómo correrlo
 
 Elige una de estas tres formas.
 
-**1. Con Docker** (perfil `dev`, el de por defecto). Spring Boot levanta PostgreSQL solo, usando `compose.yaml`:
-
-```bash
-./mvnw spring-boot:run
-```
-
-**2. Sin Docker y sin instalar nada.** Usa un PostgreSQL 16 desechable: Testcontainers si hay Docker, o uno embebido si no. Los datos se borran al detener la app.
+**1. Sin Docker y sin instalar nada (lo más rápido para la demo).** Usa un PostgreSQL 16 embebido y carga los datos de la demo. Se borra al detener la app.
 
 ```bash
 ./mvnw spring-boot:test-run
 ```
 
-**3. Con un PostgreSQL ya instalado**, o con el repo `UTP-Comercio-Data-Base` (perfil `local`). En PowerShell:
+**2. Con Docker** (perfil `dev`). Spring Boot levanta PostgreSQL solo, usando `compose.yaml`:
+
+```bash
+./mvnw spring-boot:run
+```
+
+**3. Con un PostgreSQL ya instalado** (perfil `local`; en PowerShell):
 
 ```powershell
 $env:DB_URL="jdbc:postgresql://localhost:5435/utp_comercio_db"; $env:DB_USER="utp_comercio_user"; $env:DB_PASSWORD="..."
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-Para verificar que funciona:
-- Salud: http://localhost:8080/actuator/health → `{"status":"UP"}`
+**Producción** (VPS, Railway o Render) con `Dockerfile` multi-stage y `compose.prod.yaml` (app + PostgreSQL):
+
+```bash
+cp .env.example .env   # cambia los secretos
+docker compose -f compose.prod.yaml --env-file .env up -d --build
+```
+
+- Con `SPRING_PROFILES_ACTIVE=prod,demo` se cargan los datos de la demo.
+- Con `NEARBY_OTP_DEV_CODE=123456` el código SMS queda fijo. Úsalo solo para una demo pública.
+
+**Para verificar:**
+- Salud: http://localhost:8080/actuator/health
 - Swagger UI: http://localhost:8080/swagger-ui.html
-- OpenAPI: http://localhost:8080/v3/api-docs
-- Ejemplos de peticiones: carpeta [requests/](requests/), para el cliente HTTP de IntelliJ o VS Code REST Client.
+- Endpoints: [docs/API.md](docs/API.md)
 
 ## Pruebas
 
@@ -48,32 +79,88 @@ Para verificar que funciona:
 ./mvnw verify
 ```
 
-Las pruebas de integración usan PostgreSQL 16 real: Testcontainers si hay Docker y un PostgreSQL embebido si no. Por eso pasan en cualquier PC del equipo.
+Son 82 pruebas contra PostgreSQL 16 real: Testcontainers si hay Docker, embebido si no.
+
+Cubren la lógica clave:
+- el codec SMS y el clasificador;
+- el extractor y el plan de rescate;
+- la agrupación del radar;
+- el Visto Bueno, los modos y la privacidad;
+- la sincronización y la cola;
+- el SOS y la autenticación.
+
+## Usuarios demo (Zona 3 · Las Flores)
+
+En dev el código SMS siempre es **`123456`** (la respuesta de `/auth/otp/request` lo trae en `devCode`).
+
+| Usuario | Celular | Rol | Para qué sirve en la demo |
+|---|---|---|---|
+| María Quispe | `987654321` | NEIGHBOR | Vecina principal: SOS, muro, reporte de riesgo |
+| Brigada Z3 (Coordinador) | `999000111` | BRIGADIST | Tablero con direcciones exactas, plan de rescate IA, decodificar SMS |
+| Municipalidad SJL | `999000000` | ADMIN | Activa los modos EMERGENCY / PREVENTION de la zona |
+| Julio Quispe | `911000001` | NEIGHBOR | Gasfitería, 48 vistos buenos |
+| Jorge Paredes | `911000009` | NEIGHBOR | Escalera y taladro (misión para la Sra. Teresa) |
+| Familia Ríos | `911000010` | NEIGHBOR | Sacos de arena y motobomba (mitigación El Niño) |
+
+Los otros vecinos están en el ANEXO A de [docs/BACKEND_PROMPTS.md](docs/BACKEND_PROMPTS.md): celulares 911000002 a 911000016.
+
+**Roles:**
+- **NEIGHBOR:** vecino.
+- **BRIGADIST:** ve direcciones exactas y fichas médicas durante un SOS, y genera planes de rescate.
+- **DELEGATE:** delegado; cambia el modo de la zona.
+- **ADMIN:** todo lo anterior, más reindexar la IA.
+
+## Guion de la demo
+
+[requests/demo.http](requests/demo.http) reproduce todo el flujo contra una base recién creada:
+
+1. **Login** de María, la Brigada y la Municipalidad.
+2. **SOS:** María avisa a 17 vecinos a 500 m o menos, a la brigada y a sus 3 contactos. Recibe el código `NB#SOS!S1@LF0$P:ALTA`.
+3. **Modo emergencia:** la Municipalidad lo activa, María lo ve en su app y el plan de rescate se genera solo.
+4. **Plan de rescate IA** (unos 65 ms):
+   - 2 reportes preventivos: la abuela de Lucía y el paciente con oxígeno.
+   - **Jorge y Pedro** van con la Sra. Teresa; **Taller Mendoza** (generador) va con el paciente con oxígeno.
+5. **SMS:** la brigada decodifica `NB#SOS!H1@LP340$P:ALTA` = «1 herido en Jr. Los Pinos 340». El webhook convierte un SMS en un reporte.
+6. **Modo prevención:** el radar muestra Quebrada Canto Grande en **rojo** y Jr. Los Pinos en **ámbar**.
+7. **Reporte escalado:** el tercer reporte en Jr. Los Pinos sube la zona a **rojo** (`escalated: true`) y aparece: «Familia Ríos tiene sacos de arena y motobomba a 148 m».
+8. **Coordinar:** abre el chat con la Familia Ríos y avisa a las viviendas cercanas.
+
+Hay un archivo `.http` por módulo en [requests/](requests/): auth, perfil, servicios, muro-chat, sos, emergencia-mapa, ia-sms y el-nino.
+
+## Qué se simula y cómo activar lo real
+
+| Integración | En dev (por defecto) | Real |
+|---|---|---|
+| SMS (OTP y avisos) | `ConsoleSmsGateway`: escribe en el log, con el celular enmascarado | `NEARBY_SMS_PROVIDER=twilio` (preparado en `TwilioSmsGateway`) |
+| Push | `LoggingNotificationService`: escribe en el log | `NEARBY_NOTIFICATIONS_PROVIDER=fcm` (preparado en `FcmNotificationService`) |
+| IA de texto (inventario) | Reglas del ANEXO B | `NEARBY_AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` (Claude `claude-haiku-5-5`, con respaldo de reglas) |
+| IA de visión (fotos El Niño) | Texto PHOTO_AI según la categoría | Lo mismo que la IA de texto: Claude con visión y respaldo de reglas |
+| Fotos | Disco `./uploads`, servidas en `/files/...` | `NEARBY_STORAGE_PROVIDER=s3` (preparado en `S3StorageService`) |
+| Aviso meteorológico | Lo ingresa la Municipalidad en `/admin/zones/{id}/mode` | Leerlo de una fuente oficial (SENAMHI) |
 
 ## Variables de entorno
 
 | Variable | Uso | Por defecto en dev |
-| --- | --- | --- |
+|---|---|---|
 | `NEARBY_JWT_SECRET` | Secreto HS256 (32 caracteres o más) | Valor de desarrollo |
 | `NEARBY_SMS_INBOUND_TOKEN` | Token del webhook `/api/v1/sms/inbound` | `dev-sms-token` |
-| `NEARBY_AI_PROVIDER` | `rules` o `anthropic` | `rules` |
-| `ANTHROPIC_API_KEY`, `NEARBY_AI_MODEL` | IA con Anthropic (opcional) | — / `claude-haiku-5-5` |
+| `NEARBY_SMS_PROVIDER` / `NEARBY_NOTIFICATIONS_PROVIDER` / `NEARBY_STORAGE_PROVIDER` | Proveedores reales | `console` / `log` / `local` |
+| `NEARBY_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `NEARBY_AI_MODEL` | IA con Claude | `rules` / — / `claude-haiku-5-5` |
 | `NEARBY_CORS_ORIGINS` | Orígenes CORS (patrones separados por coma) | `http://localhost:*` |
+| `NEARBY_OTP_DEV_CODE` | Código SMS fijo en prod (solo para una demo) | — (en dev es `123456`) |
+| `NEARBY_SWAGGER_ENABLED` | Swagger en prod | `false` |
 | `DB_URL`, `DB_USER`, `DB_PASSWORD` | Base de datos (perfiles `local` y `prod`) | — |
 | `PORT` | Puerto HTTP | `8080` |
 
-## Estructura
+## Seguridad y robustez
 
-Paquetes por funcionalidad bajo `eytlyr.com.utp_comercio_backend`:
-- `common`: errores ProblemDetail, GeoUtils y PageResponse.
-- `config`: seguridad, OpenAPI, reloj y propiedades `nearby.*`.
-- Modelo de datos (entidades, enums y repositorios): `zone`, `user`, `auth`, `services`, `posts`, `chat`, `sos`, `emergency`, `ai` y `prevention`.
-- `seed`: `DemoDataSeeder` carga la demo «Zona 3 · Las Flores» (19 vecinos, servicios, muro, reportes) en el perfil `dev`.
-- El esquema está en `src/main/resources/db/migration` y solo lo cambia Flyway (`ddl-auto=validate`).
+- **Autenticación:** JWT HS256 con el rol en el token. El código SMS y el token de refresco se guardan como hash. El token de refresco rota, y si alguien reusa uno ya rotado se cierran todas las sesiones.
+- **Límites en memoria:** SOS 10 por minuto, reportes de riesgo 20 por hora y pedidos de código SMS 30 por hora por IP. Además, 5 códigos por hora por celular y 5 intentos por código.
+- **Privacidad:**
+  - Las direcciones exactas y las fichas médicas solo las ve la brigada.
+  - Las vulnerabilidades del inventario de la IA son anónimas para los vecinos.
+  - Los logs no guardan celulares completos ni fichas médicas.
+- **Trazabilidad:** cada petición tiene un `X-Correlation-Id`, que aparece en el log como `[cid]`.
+- **SOS:** los avisos salen después del commit y en segundo plano. Si se cae un proveedor, el SOS no falla.
 
-**Usuarios demo** (en dev, el código SMS es `123456` desde la fase 3):
-- María Quispe `987654321` (vecina)
-- Brigada Z3 `999000111` (brigadista)
-- Municipalidad SJL `999000000` (admin)
-
-Los prompts por fase están en [docs/BACKEND_PROMPTS.md](docs/BACKEND_PROMPTS.md) y las decisiones tomadas, en [docs/DECISIONES.md](docs/DECISIONES.md).
+Las decisiones de diseño de cada fase están en [docs/DECISIONES.md](docs/DECISIONES.md).

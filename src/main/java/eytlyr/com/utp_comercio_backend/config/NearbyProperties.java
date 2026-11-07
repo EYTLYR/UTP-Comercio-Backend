@@ -24,7 +24,8 @@ public record NearbyProperties(
 		@DefaultValue Prevention prevention,
 		@DefaultValue Ai ai,
 		@DefaultValue Storage storage,
-		@DefaultValue Cors cors) {
+		@DefaultValue Cors cors,
+		@DefaultValue RateLimit rateLimit) {
 
 	/** Código SMS de acceso. devFixedCode solo se define en el perfil dev. */
 	public record Otp(
@@ -70,6 +71,11 @@ public record NearbyProperties(
 
 	/** provider: "local" (disco, por defecto) o "s3" (preparado). */
 	public record Storage(@DefaultValue("local") String provider, @DefaultValue("./uploads") String localDir) {
+	}
+
+	/** Límites de peticiones en memoria (por usuario; el de OTP, por IP). */
+	public record RateLimit(@DefaultValue("true") boolean enabled, @DefaultValue("10") int sosPerMinute,
+			@DefaultValue("20") int riskReportsPerHour, @DefaultValue("30") int otpRequestsPerHourPerIp) {
 	}
 
 	/** Orígenes permitidos para CORS (patrones). Vacío = sin CORS. */

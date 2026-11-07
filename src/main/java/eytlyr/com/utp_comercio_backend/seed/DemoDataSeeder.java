@@ -50,10 +50,10 @@ import eytlyr.com.utp_comercio_backend.zone.ZoneRepository;
 
 /**
  * Datos de la demo (ANEXO A de docs/BACKEND_PROMPTS.md): Zona 3 · Las Flores, San Juan de Lurigancho.
- * Solo en el perfil dev y es idempotente: si la zona ya existe no hace nada.
+ * Solo en los perfiles dev y demo (prod,demo para la presentación). Es idempotente: si la zona ya existe no hace nada.
  */
 @Component
-@Profile("dev")
+@Profile({ "dev", "demo" })
 public class DemoDataSeeder implements CommandLineRunner {
 
 	public static final String ZONE_NAME = "Zona 3 · Las Flores";

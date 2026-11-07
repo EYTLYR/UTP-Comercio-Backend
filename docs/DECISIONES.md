@@ -160,3 +160,24 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
    - Se aceptan JPG o PNG de hasta 5 MB y se guardan con `StorageService`. En dev, en `./uploads`, servidas públicamente en `/files/{uuid}.jpg` con nombres aleatorios; S3 queda preparado.
    - `AnthropicPhotoRiskAnalyzer` (visión, SDK oficial, 8 s de tiempo máximo) tiene como respaldo el analizador de reglas PHOTO_AI.
 9. **El seeder ejecuta el radar al final**, así la demo arranca con la quebrada en rojo y Jr. Los Pinos en ámbar.
+
+## Fase 11
+
+1. **`GET /sync`:**
+   - Con `since`, servicios y publicaciones vienen solo si cambiaron (`updated_at`). Los cancelados, terminados o inactivos vienen en `deleted`.
+   - La zona, las calles, los grupos, los puntos seguros, el inventario (snapshot), las zonas de riesgo y el tablero siempre vienen completos, porque son pequeños.
+   - El tablero respeta la privacidad del rol. El límite es de 500 elementos por lista.
+2. **`POST /sync/outbox`:**
+   - Procesa hasta 100 elementos en orden, cada uno en la transacción de su servicio. Así un error no bloquea los demás.
+   - `payload` es el mismo JSON de cada endpoint, validado con Bean Validation; `MESSAGE` agrega `conversationId`.
+   - El estado es `CREATED`, `DUPLICATE` (`clientId` repetido) o `ERROR` (con `code` y mensaje).
+   - `CHECK_IN` no tiene `clientId`: siempre crea uno nuevo.
+3. **Límites de peticiones:**
+   - Ventana deslizante en memoria, por usuario del token; el de OTP, por IP. Solo sirve para una instancia; con varias réplicas habría que moverlo a Redis.
+   - En las pruebas se apagan, porque todas comparten la IP local. El limitador se prueba aparte (`RateLimiterTest`).
+4. **`V3__indexes.sql`:** índices por zona y estado para las listas más usadas. V2 ya se había usado para el chat. No se agregó la prueba de N+1 con `generate_statistics`, para ganar tiempo. Las listas usan `join fetch` o `@EntityGraph` en las relaciones que muestran.
+5. **Logs:** `X-Correlation-Id` (se respeta el que envía el cliente si es seguro) va al MDC `cid` y aparece en el patrón del log. El SMS de consola enmascara el celular. El código OTP se ve en el log solo en dev, que es su propósito.
+6. **Perfil `demo`:** carga la semilla también en producción (`prod,demo`).
+   - `NEARBY_OTP_DEV_CODE` permite fijar el código SMS en una demo pública. Vacío, el código es aleatorio.
+   - El Dockerfile usa la imagen JRE de Temurin 21, un usuario sin privilegios y las fotos en `/app/uploads` (volumen).
+7. **`docs/API.md`** se generó desde `/v3/api-docs` (86 operaciones), con los roles tomados de `@PreAuthorize`.

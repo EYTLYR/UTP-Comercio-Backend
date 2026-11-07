@@ -1,0 +1,118 @@
+### ============================================================================
+### GUION DE LA DEMO · Nearby (Zona 3 · Las Flores, San Juan de Lurigancho)
+### Base recién creada: ./mvnw spring-boot:test-run   (o docker compose -f compose.prod.yaml up con prod,demo)
+### Ejecuta las peticiones en orden (IntelliJ HTTP Client o VS Code REST Client).
+### ============================================================================
+@base = http://localhost:8080
+
+### 1) LOGIN · María Quispe (vecina). En dev el código siempre es 123456.
+POST {{base}}/api/v1/auth/otp/request
+Content-Type: application/json
+
+{ "phone": "987654321" }
+
+###
+# @name maria
+POST {{base}}/api/v1/auth/otp/verify
+Content-Type: application/json
+
+{ "phone": "987654321", "code": "123456" }
+
+### Brigada Z3
+POST {{base}}/api/v1/auth/otp/request
+Content-Type: application/json
+
+{ "phone": "999000111" }
+
+###
+# @name brigada
+POST {{base}}/api/v1/auth/otp/verify
+Content-Type: application/json
+
+{ "phone": "999000111", "code": "123456" }
+
+### Municipalidad SJL (admin)
+POST {{base}}/api/v1/auth/otp/request
+Content-Type: application/json
+
+{ "phone": "999000000" }
+
+###
+# @name admin
+POST {{base}}/api/v1/auth/otp/verify
+Content-Type: application/json
+
+{ "phone": "999000000", "code": "123456" }
+
+### 2) SOS · María pide ayuda (avisa a vecinos a 500 m, brigada y 3 contactos; trae el código SMS)
+# @name sos
+POST {{base}}/api/v1/sos
+Authorization: Bearer {{maria.response.body.accessToken}}
+Content-Type: application/json
+
+{ "clientId": "d3a0d3a0-0000-4000-8000-000000000001", "lat": -11.9790, "lng": -77.0030, "type": "HEALTH" }
+
+### 3) MODO EMERGENCIA · la Municipalidad lo activa (el plan de rescate de la IA se genera solo)
+POST {{base}}/api/v1/admin/zones/{{maria.response.body.user.zone.id}}/mode
+Authorization: Bearer {{admin.response.body.accessToken}}
+Content-Type: application/json
+
+{ "mode": "EMERGENCY", "reason": "Sismo de magnitud 6.8" }
+
+### María ve el modo emergencia en su app
+GET {{base}}/api/v1/me
+Authorization: Bearer {{maria.response.body.accessToken}}
+
+### 4) PLAN DE RESCATE IA (Protocolo Lázaro): 2 reportes preventivos, Jorge y Pedro para la Sra. Teresa
+# @name plan
+POST {{base}}/api/v1/ai/rescue-plans
+Authorization: Bearer {{brigada.response.body.accessToken}}
+
+### Tablero humanitario (la brigada ve direcciones exactas)
+GET {{base}}/api/v1/vulnerable-reports
+Authorization: Bearer {{brigada.response.body.accessToken}}
+
+### 5) SMS DECODE · el brigadista lee un SOS enviado sin internet
+POST {{base}}/api/v1/sms/decode
+Authorization: Bearer {{brigada.response.body.accessToken}}
+Content-Type: application/json
+
+{ "code": "NB#SOS!H1@LP340$P:ALTA" }
+
+### ... y la pasarela SMS lo convierte en reporte
+POST {{base}}/api/v1/sms/inbound
+X-Nearby-Token: dev-sms-token
+Content-Type: application/json
+
+{ "from": "+51956000447", "body": "NB#SOS!A2@MC12$P:ALTA" }
+
+### María está a salvo
+POST {{base}}/api/v1/sos/{{sos.response.body.id}}/safe
+Authorization: Bearer {{maria.response.body.accessToken}}
+
+### 6) MODO PREVENCIÓN · alerta por lluvias (El Niño)
+POST {{base}}/api/v1/admin/zones/{{maria.response.body.user.zone.id}}/mode
+Authorization: Bearer {{admin.response.body.accessToken}}
+Content-Type: application/json
+
+{ "mode": "PREVENTION", "reason": "Aviso SENAMHI por lluvias intensas", "weatherLevel": "ORANGE" }
+
+### Radar: Quebrada Canto Grande en ROJO y Jr. Los Pinos en ÁMBAR
+POST {{base}}/api/v1/risk-zones/analyze
+Authorization: Bearer {{maria.response.body.accessToken}}
+
+### 7) REPORTE ESCALADO · el tercer reporte sube Jr. Los Pinos a ROJO (escalated = true)
+# @name riesgo
+POST {{base}}/api/v1/risk-reports
+Authorization: Bearer {{maria.response.body.accessToken}}
+Content-Type: application/json
+
+{ "clientId": "d3a0d3a0-0000-4000-8000-000000000002", "category": "SEEPAGE", "text": "Está brotando agua por la pared de la sala", "addressText": "Jr. Los Pinos 330" }
+
+### 8) COORDINAR · "Sí, coordinar ayuda" con la Familia Ríos (sacos de arena y motobomba)
+POST {{base}}/api/v1/risk-zones/{{riesgo.response.body.riskZone.id}}/coordinate
+Authorization: Bearer {{maria.response.body.accessToken}}
+
+### Mapa de calor
+GET {{base}}/api/v1/map/heat
+Authorization: Bearer {{maria.response.body.accessToken}}
