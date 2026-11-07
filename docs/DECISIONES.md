@@ -194,7 +194,7 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 
 - **Por qué no Twilio:** la cuenta de prueba solo envía plantillas fijas (error 572006), así que no puede mandar el código de ingreso ni los avisos del SOS. Pasar a pago no era opción para el hackathon.
 - **Cómo:** un celular Android con chip peruano y la app SMS Gateway (modo nube) envía y recibe los SMS. Los vecinos ven un número local y los SMS los cubre el plan del chip.
-- **Microservicio aparte** (`sms-gateway-demo`, Node sin dependencias): es lo único que habla con sms-gate.app. El backend solo llama a `POST /v1/messages` con `X-Api-Key` (`GatewaySmsGateway`, `nearby.sms.provider=gateway`). Si mañana se cambia de proveedor, solo cambia el microservicio.
+- **Microservicio aparte** (`micro/sms-gateway`, Node sin dependencias): es lo único que habla con sms-gate.app. El backend solo llama a `POST /v1/messages` con `X-Api-Key` (`GatewaySmsGateway`, `nearby.sms.provider=gateway`). Si mañana se cambia de proveedor, solo cambia el microservicio.
 - **Entrante:** el microservicio valida la firma del webhook de sms-gate (HMAC-SHA256) y reenvía el SMS al endpoint que ya existía, `/api/v1/sms/inbound` con `X-Nearby-Token`. El backend no necesita saber de dónde viene.
 - **Fallas:** si el código de ingreso no sale y no hay código fijo, `422 SMS_SEND_FAILED`. Los avisos del SOS que fallan solo quedan en el log: el SOS nunca falla por el proveedor.
 - **160 caracteres:** el SMS del SOS usa coordenadas con 5 decimales para entrar en un solo mensaje.

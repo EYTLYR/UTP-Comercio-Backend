@@ -1,0 +1,13 @@
+{
+  "name": "sms-gateway-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Demo de SMS Gateway for Android (sms-gate.app) para Nearby",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

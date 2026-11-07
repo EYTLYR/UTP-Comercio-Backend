@@ -151,7 +151,7 @@ Hay un archivo `.http` por módulo en [requests/](requests/): auth, perfil, serv
 
 ## SMS reales (microservicio SMS)
 
-Los SMS reales salen de un celular Android con chip peruano y la app **SMS Gateway for Android**. El backend no habla con el celular: consume el microservicio aparte [`sms-gateway-demo`](../sms-gateway-demo/README.md).
+Los SMS reales salen de un celular Android con chip peruano y la app **SMS Gateway for Android**. El backend no habla con el celular: consume el microservicio aparte [`micro/sms-gateway`](micro/sms-gateway/README.md).
 
 ```text
 Backend ── POST /v1/messages (X-Api-Key) ──► microservicio SMS ──► sms-gate.app ──► celular ──► SMS
@@ -160,7 +160,7 @@ SMS entrante ──► celular ──► microservicio ── POST /api/v1/sms/i
 
 **Para el equipo:** el microservicio ya corre en la PC de James y se publica en `https://fflx84lw-3000.brs.devtunnels.ms` (valor por defecto de `NEARBY_SMS_GATEWAY_URL`). No hace falta levantarlo: en tu `.env` pon `NEARBY_SMS_PROVIDER=gateway` y `NEARBY_SMS_GATEWAY_API_KEY` (pídele la clave a James; no la subas a git, el repo es público). Si falta la clave, el backend no arranca y lo dice. Si el túnel está apagado, el código no llega por SMS: búscalo en el log del backend o fíjalo con `NEARBY_OTP_DEV_CODE`.
 
-**Para levantarlo tú:** `npm start` en `sms-gateway-demo` (puerto 3000) con el celular conectado, y en el backend `NEARBY_SMS_GATEWAY_URL=http://localhost:3000` con la misma clave que `SERVICE_API_KEY` del microservicio. Los SMS entrantes se reenvían a `FORWARD_URL` (`http://localhost:8080/api/v1/sms/inbound`) con `FORWARD_TOKEN` igual a `NEARBY_SMS_INBOUND_TOKEN` del backend: llegan al backend de quien corre el microservicio.
+**Para levantarlo tú:** `npm start` en `micro/sms-gateway` (puerto 3000) con el celular conectado, y en el backend `NEARBY_SMS_GATEWAY_URL=http://localhost:3000` con la misma clave que `SERVICE_API_KEY` del microservicio. Los SMS entrantes se reenvían a `FORWARD_URL` (`http://localhost:8080/api/v1/sms/inbound`) con `FORWARD_TOKEN` igual a `NEARBY_SMS_INBOUND_TOKEN` del backend: llegan al backend de quien corre el microservicio.
 
 Si el SMS del código de ingreso falla y hay código fijo (`NEARBY_OTP_DEV_CODE`), igual se puede entrar con ese código; sin código fijo la API responde `422 SMS_SEND_FAILED`. Los avisos del SOS que fallan se registran en el log y no detienen el SOS.
 

@@ -19,7 +19,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * SMS reales por el microservicio SMS (sms-gateway-demo, nearby.sms.provider=gateway). El microservicio
+ * SMS reales por el microservicio SMS (micro/sms-gateway, nearby.sms.provider=gateway). El microservicio
  * controla un celular Android con SMS Gateway; el backend solo le pide el envío por HTTP.
  * Contrato: POST {url}/v1/messages con X-Api-Key y {"to": "987654321", "text": "..."} → 202.
  */

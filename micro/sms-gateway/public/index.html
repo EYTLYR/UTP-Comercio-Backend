@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo SMS Gateway</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --card: #ffffff; --ink: #1f1e1b; --muted: #6b675f; --line: #e4e1d8;
+    --primary: #0e7c66; --primary-soft: #dff3ee; --sos: #d62839; --sos-soft: #fde7ea;
+    --amber: #a86400; --amber-soft: #fff1d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --card: #1e1d1b; --ink: #f1efe8; --muted: #a29d92; --line: #34322e;
+      --primary: #4fd1b0; --primary-soft: #133a31; --sos: #ff6b7a; --sos-soft: #3d1a1f;
+      --amber: #f2b552; --amber-soft: #3a2c12;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  p.lead { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 16px; }
+  label { display: block; font-weight: 600; font-size: 13px; margin: 10px 0 4px; }
+  input, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); font: inherit; }
+  textarea { min-height: 76px; resize: vertical; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button { border: 0; border-radius: 10px; padding: 10px 14px; font: inherit; font-weight: 700; cursor: pointer; background: var(--primary); color: #fff; }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 600; }
+  button.small { padding: 6px 10px; font-size: 13px; }
+  button:disabled { opacity: .5; cursor: default; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .count { margin-left: auto; }
+  .msg { border-top: 1px solid var(--line); padding: 10px 0; }
+  .msg:first-child { border-top: 0; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--amber-soft); color: var(--amber); }
+  .badge.ok { background: var(--primary-soft); color: var(--primary); }
+  .badge.bad, .badge.sos { background: var(--sos-soft); color: var(--sos); }
+  .err { color: var(--sos); font-weight: 600; margin-top: 8px; min-height: 1em; }
+  code { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); display: inline-block; }
+  .dot.on { background: var(--primary); }
+  svg { width: 18px; height: 18px; flex: none; }
+  ol { padding-left: 20px; margin: 8px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Demo SMS Gateway</h1>
+  <p class="lead">Envía y recibe SMS con tu celular Android (app SMS Gateway, servidor en la nube) antes de conectarlo a Nearby.</p>
+
+  <section class="card">
+    <h2>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>
+      Tu celular
+    </h2>
+    <div id="device" class="muted">Consultando…</div>
+  </section>
+
+  <section class="card">
+    <h2>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
+      Enviar un SMS
+    </h2>
+    <label for="to">Celular de destino</label>
+    <input id="to" inputmode="tel" placeholder="9XXXXXXXX (Perú) o +código">
+    <label for="text">Mensaje</label>
+    <textarea id="text" maxlength="160" placeholder="Escribe el mensaje"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="ghost small" data-tpl="Tu código Nearby es 123456. No lo compartas.">Código de ingreso</button>
+      <button class="ghost small" data-tpl="Nearby: María Quispe activó un SOS cerca de ti (Jr. Las Flores 245). Abre la app para ayudar.">Aviso SOS</button>
+      <button class="ghost small" data-tpl="NB#SOS!H1@LP340$P:ALTA">Código SOS sin internet</button>
+      <span id="count" class="muted count">0/160</span>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button id="send">Enviar SMS</button>
+    </div>
+    <div id="sendErr" class="err"></div>
+  </section>
+
+  <section class="card">
+    <h2>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      Enviados
+    </h2>
+    <div id="sent" class="muted">Aún no envías nada.</div>
+  </section>
+
+  <section class="card">
+    <h2>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+      Recibidos
+    </h2>
+    <div id="inbox" class="muted">Sin mensajes. Para recibir, registra el webhook (abajo).</div>
+  </section>
+
+  <section class="card">
+    <h2>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      Recibir SMS (webhook)
+    </h2>
+    <p class="muted" style="margin-top:0">sms-gate.app tiene que llegar a esta página desde internet:</p>
+    <ol class="muted">
+      <li>En otra terminal: <code>ngrok http 3000</code></li>
+      <li>Copia la dirección <code>https://….ngrok-free.app</code> y pégala aquí.</li>
+      <li>Desde otro celular, manda un SMS al número del celular con la app.</li>
+    </ol>
+    <label for="hook">URL pública</label>
+    <div class="row">
+      <input id="hook" placeholder="https://xxxx.ngrok-free.app" style="flex:1; min-width:220px">
+      <button id="register">Registrar</button>
+    </div>
+    <div id="hookErr" class="err"></div>
+    <div id="hooks" class="muted"></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const FINAL = ['Delivered', 'Failed'];
+
+async function api(method, url, body) {
+  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function time(iso) { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+function badge(state) {
+  const labels = { Pending: 'En cola', Processed: 'En el celular', Sent: 'Enviado', Delivered: 'Entregado', Failed: 'Falló' };
+  const cls = state === 'Delivered' || state === 'Sent' ? 'ok' : state === 'Failed' ? 'bad' : '';
+  return `<span class="badge ${cls}">${labels[state] || esc(state)}</span>`;
+}
+
+// Celular
+async function loadDevice() {
+  try {
+    const list = await api('GET', '/api/device');
+    if (!list.length) { $('device').textContent = 'No hay celulares registrados con este usuario.'; return; }
+    $('device').innerHTML = list.map((d) => {
+      const seen = new Date(d.lastSeen);
+      const online = Date.now() - seen < 10 * 60 * 1000;
+      return `<div class="row"><span class="dot ${online ? 'on' : ''}"></span><strong>${esc(d.name)}</strong>
+        <span class="muted">· visto ${seen.toLocaleString('es-PE')}${online ? '' : ' (abre la app si no responde)'}</span></div>`;
+    }).join('');
+  } catch (e) { $('device').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+}
+
+// Enviar
+$('text').addEventListener('input', () => { $('count').textContent = `${$('text').value.length}/160`; });
+document.querySelectorAll('[data-tpl]').forEach((b) => b.addEventListener('click', () => {
+  $('text').value = b.dataset.tpl; $('text').dispatchEvent(new Event('input'));
+}));
+$('send').addEventListener('click', async () => {
+  $('sendErr').textContent = '';
+  $('send').disabled = true;
+  try {
+    await api('POST', '/api/send', { to: $('to').value, text: $('text').value });
+    await loadSent();
+  } catch (e) { $('sendErr').textContent = e.message; }
+  finally { $('send').disabled = false; }
+});
+
+async function loadSent() {
+  const list = await api('GET', '/api/sent');
+  if (!list.length) return;
+  $('sent').classList.remove('muted');
+  $('sent').innerHTML = list.map((m) => `<div class="msg">
+      <div class="row"><strong>${esc(m.to)}</strong> ${badge(m.state)} <span class="muted">${m.source === 'backend' ? '· desde Nearby' : ''}</span><span class="muted count">${time(m.at)}</span></div>
+      <div>${esc(m.text)}</div>
+      ${(m.recipients || []).filter((r) => r.error).map((r) => `<div class="err">${esc(r.error)}</div>`).join('')}
+    </div>`).join('');
+}
+
+async function pollStatus() {
+  const list = await api('GET', '/api/sent').catch(() => []);
+  const pending = list.filter((m) => !FINAL.includes(m.state));
+  for (const m of pending) { await api('GET', `/api/status/${m.id}`).catch(() => {}); }
+  if (pending.length) await loadSent();
+}
+
+// Recibidos
+async function loadInbox() {
+  const list = await api('GET', '/api/inbox').catch(() => []);
+  if (!list.length) return;
+  $('inbox').classList.remove('muted');
+  $('inbox').innerHTML = list.map((m) => `<div class="msg">
+      <div class="row"><strong>${esc(m.from)}</strong>
+        ${m.sos ? '<span class="badge sos">Código SOS</span>' : ''}
+        ${m.verified ? '<span class="badge ok">Firma verificada</span>' : ''}
+        ${m.forwarded ? `<span class="muted">· Nearby: ${esc(m.forwarded)}</span>` : ''}
+        <span class="muted count">${time(m.at)}</span></div>
+      <div>${esc(m.text)}</div>
+    </div>`).join('');
+}
+
+// Webhooks
+async function loadHooks() {
+  try {
+    const list = await api('GET', '/api/webhooks');
+    $('hooks').innerHTML = list.length
+      ? list.map((h) => `<div class="msg row"><span>${esc(h.event)} → <code>${esc(h.url)}</code></span>
+          <button class="ghost small count" data-del="${esc(h.id)}">Quitar</button></div>`).join('')
+      : 'Ningún webhook registrado.';
+    document.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
+      await api('DELETE', `/api/webhooks/${b.dataset.del}`).catch((e) => ($('hookErr').textContent = e.message));
+      loadHooks();
+    }));
+  } catch (e) { $('hooks').innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+}
+$('register').addEventListener('click', async () => {
+  $('hookErr').textContent = '';
+  try { await api('POST', '/api/webhooks', { url: $('hook').value.trim() }); loadHooks(); }
+  catch (e) { $('hookErr').textContent = e.message; }
+});
+
+loadDevice(); loadSent().catch(() => {}); loadInbox(); loadHooks();
+setInterval(() => { pollStatus(); loadInbox(); }, 3000);
+setInterval(loadDevice, 60000);
+</script>
+</body>
+</html>

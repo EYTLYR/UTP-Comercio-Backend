@@ -37,7 +37,7 @@ public record NearbyProperties(
 	}
 
 	/**
-	 * provider: "console" (log, por defecto) o "gateway" (microservicio SMS, ver sms-gateway-demo).
+	 * provider: "console" (log, por defecto) o "gateway" (microservicio SMS, ver micro/sms-gateway).
 	 * inboundToken protege /api/v1/sms/inbound, donde el microservicio reenvía los SMS recibidos.
 	 */
 	public record Sms(@DefaultValue("console") String provider, String inboundToken, @DefaultValue Gateway gateway) {
