@@ -54,6 +54,7 @@ nearby:
     max-attempts: 5
     max-requests-per-hour: 5
   sms:
+    provider: ${NEARBY_SMS_PROVIDER:console}
     inbound-token: ${NEARBY_SMS_INBOUND_TOKEN:}
   emergency:
     auto-activate-sos-count: 5

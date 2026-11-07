@@ -1,0 +1,51 @@
+### FASE 3 · Ingreso con celular y código SMS (usuaria demo María Quispe)
+# En dev el código siempre es 123456 y también se ve en el log: [SMS → 987654321] ...
+@base = http://localhost:8080
+@phone = 987654321
+
+### 1. Pedir el código -> 202 { expiresInSeconds: 300, resendInSeconds: 30, devCode: "123456" }
+POST {{base}}/api/v1/auth/otp/request
+Content-Type: application/json
+
+{ "phone": "{{phone}}" }
+
+### 2. Verificar el código -> 200 { accessToken, refreshToken, expiresIn, isNewUser, user }
+# @name login
+POST {{base}}/api/v1/auth/otp/verify
+Content-Type: application/json
+
+{ "phone": "{{phone}}", "code": "123456" }
+
+### 3. Mi perfil con el token de acceso
+GET {{base}}/api/v1/me
+Authorization: Bearer {{login.response.body.accessToken}}
+
+### 4. Rotar el token de refresco (el anterior queda revocado)
+# @name refreshed
+POST {{base}}/api/v1/auth/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{login.response.body.refreshToken}}" }
+
+### 5. Reusar el token ya rotado -> 401 REFRESH_INVALID (y se cierran todas las sesiones)
+POST {{base}}/api/v1/auth/refresh
+Content-Type: application/json
+
+{ "refreshToken": "{{login.response.body.refreshToken}}" }
+
+### 6. Cerrar sesión -> 204
+POST {{base}}/api/v1/auth/logout
+Authorization: Bearer {{refreshed.response.body.accessToken}}
+
+### Errores
+### Celular inválido -> 400 "Los celulares en Perú tienen 9 dígitos y empiezan con 9"
+POST {{base}}/api/v1/auth/otp/request
+Content-Type: application/json
+
+{ "phone": "12345" }
+
+### Código incorrecto -> 401 OTP_INVALID
+POST {{base}}/api/v1/auth/otp/verify
+Content-Type: application/json
+
+{ "phone": "{{phone}}", "code": "000000" }

@@ -1,0 +1,183 @@
+package eytlyr.com.utp_comercio_backend.auth;
+
+import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.util.Base64;
+import java.util.UUID;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import eytlyr.com.utp_comercio_backend.auth.dto.AuthDtos.AuthResponse;
+import eytlyr.com.utp_comercio_backend.auth.dto.AuthDtos.OtpRequestResponse;
+import eytlyr.com.utp_comercio_backend.common.ApiException;
+import eytlyr.com.utp_comercio_backend.common.TooManyRequestsException;
+import eytlyr.com.utp_comercio_backend.common.UnauthorizedException;
+import eytlyr.com.utp_comercio_backend.config.NearbyProperties;
+import eytlyr.com.utp_comercio_backend.sms.SmsGateway;
+import eytlyr.com.utp_comercio_backend.user.AppUser;
+import eytlyr.com.utp_comercio_backend.user.AppUserRepository;
+import eytlyr.com.utp_comercio_backend.user.Role;
+import eytlyr.com.utp_comercio_backend.user.dto.UserDto;
+
+/** Acceso sin contraseña: código SMS de un solo uso, token de acceso JWT y token de refresco rotativo. */
+@Service
+public class AuthService {
+
+	public static final String OTP_INVALID = "OTP_INVALID";
+
+	public static final String OTP_TOO_MANY_REQUESTS = "OTP_TOO_MANY_REQUESTS";
+
+	public static final String OTP_TOO_MANY_ATTEMPTS = "OTP_TOO_MANY_ATTEMPTS";
+
+	public static final String REFRESH_INVALID = "REFRESH_INVALID";
+
+	static final long RESEND_SECONDS = 30;
+
+	static final String NEW_USER_NAME = "Vecino";
+
+	private static final String TOO_MANY = "Demasiados intentos, espera unos minutos";
+
+	private final SecureRandom random = new SecureRandom();
+
+	private final OtpCodeRepository otps;
+
+	private final RefreshTokenRepository refreshTokens;
+
+	private final AppUserRepository users;
+
+	private final SecretHasher hasher;
+
+	private final JwtService jwt;
+
+	private final SmsGateway sms;
+
+	private final Clock clock;
+
+	private final NearbyProperties.Otp otpProps;
+
+	private final Duration refreshTtl;
+
+	public AuthService(OtpCodeRepository otps, RefreshTokenRepository refreshTokens, AppUserRepository users,
+			SecretHasher hasher, JwtService jwt, SmsGateway sms, Clock clock, NearbyProperties props) {
+		this.otps = otps;
+		this.refreshTokens = refreshTokens;
+		this.users = users;
+		this.hasher = hasher;
+		this.jwt = jwt;
+		this.sms = sms;
+		this.clock = clock;
+		this.otpProps = props.otp();
+		this.refreshTtl = Duration.ofDays(props.refreshTokenDays());
+	}
+
+	// ---------------------------------------------------------------- código SMS
+
+	@Transactional
+	public OtpRequestResponse requestOtp(String phone) {
+		OffsetDateTime now = OffsetDateTime.now(clock);
+		if (otps.countByPhoneAndCreatedAtAfter(phone, now.minusHours(1)) >= otpProps.maxRequestsPerHour()) {
+			throw new TooManyRequestsException(OTP_TOO_MANY_REQUESTS, TOO_MANY);
+		}
+		otps.invalidatePending(phone);
+		String code = newCode();
+		long ttl = Duration.ofMinutes(otpProps.expiryMinutes()).toSeconds();
+		otps.save(OtpCode.builder()
+				.phone(phone)
+				.codeHash(hasher.hash(phone + ":" + code))
+				.expiresAt(now.plusSeconds(ttl))
+				.build());
+		sms.send(phone, "Tu código Nearby es " + code + ". No lo compartas.");
+		return new OtpRequestResponse(ttl, RESEND_SECONDS, isDev() ? code : null);
+	}
+
+	/**
+	 * Verifica el código. Los intentos fallidos se guardan aunque la respuesta sea un error
+	 * (noRollbackFor), para que el límite de intentos funcione.
+	 */
+	@Transactional(noRollbackFor = ApiException.class)
+	public AuthResponse verifyOtp(String phone, String code) {
+		OtpCode otp = otps.findFirstByPhoneAndConsumedFalseOrderByCreatedAtDesc(phone)
+				.orElseThrow(AuthService::otpInvalid);
+		otp.setAttempts(otp.getAttempts() + 1);
+		if (otp.getAttempts() > otpProps.maxAttempts()) {
+			otp.setConsumed(true);
+			throw new TooManyRequestsException(OTP_TOO_MANY_ATTEMPTS, TOO_MANY);
+		}
+		boolean expired = !otp.getExpiresAt().isAfter(OffsetDateTime.now(clock));
+		if (expired || !hasher.matches(phone + ":" + code, otp.getCodeHash())) {
+			throw otpInvalid();
+		}
+		otp.setConsumed(true);
+
+		AppUser existing = users.findByPhone(phone).orElse(null);
+		boolean isNew = existing == null;
+		AppUser user = isNew
+				? users.save(AppUser.builder().phone(phone).name(NEW_USER_NAME).role(Role.NEIGHBOR).build())
+				: existing;
+		return issue(user, isNew);
+	}
+
+	// ---------------------------------------------------------------- tokens
+
+	/** Rota el token de refresco: el usado queda revocado y se entrega uno nuevo. */
+	@Transactional(noRollbackFor = ApiException.class)
+	public AuthResponse refresh(String refreshToken) {
+		RefreshToken stored = refreshTokens.findByTokenHash(hasher.hash(refreshToken))
+				.orElseThrow(AuthService::refreshInvalid);
+		if (stored.isRevoked()) {
+			// Un token ya rotado se volvió a usar: posible robo. Se cierran todas las sesiones del usuario.
+			refreshTokens.revokeAllByUserId(stored.getUser().getId());
+			throw refreshInvalid();
+		}
+		if (!stored.getExpiresAt().isAfter(OffsetDateTime.now(clock))) {
+			throw refreshInvalid();
+		}
+		stored.setRevoked(true);
+		return issue(stored.getUser(), false);
+	}
+
+	@Transactional
+	public void logout(UUID userId) {
+		refreshTokens.revokeAllByUserId(userId);
+	}
+
+	private AuthResponse issue(AppUser user, boolean isNew) {
+		byte[] bytes = new byte[32];
+		random.nextBytes(bytes);
+		String refresh = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+		refreshTokens.save(RefreshToken.builder()
+				.user(user)
+				.tokenHash(hasher.hash(refresh))
+				.expiresAt(OffsetDateTime.now(clock).plus(refreshTtl))
+				.build());
+		return new AuthResponse(jwt.accessToken(user), refresh, jwt.accessTtlSeconds(), isNew, UserDto.from(user));
+	}
+
+	// ---------------------------------------------------------------- utilidades
+
+	private String newCode() {
+		if (isDev()) {
+			return otpProps.devFixedCode();
+		}
+		StringBuilder sb = new StringBuilder(otpProps.length());
+		for (int i = 0; i < otpProps.length(); i++) {
+			sb.append(random.nextInt(10));
+		}
+		return sb.toString();
+	}
+
+	private boolean isDev() {
+		return otpProps.devFixedCode() != null && !otpProps.devFixedCode().isBlank();
+	}
+
+	private static UnauthorizedException otpInvalid() {
+		return new UnauthorizedException(OTP_INVALID, "Código incorrecto. Revisa el SMS e inténtalo otra vez");
+	}
+
+	private static UnauthorizedException refreshInvalid() {
+		return new UnauthorizedException(REFRESH_INVALID, "Tu sesión venció. Vuelve a ingresar con tu celular.");
+	}
+}

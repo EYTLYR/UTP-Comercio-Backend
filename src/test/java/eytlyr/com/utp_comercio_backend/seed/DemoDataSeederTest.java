@@ -30,7 +30,7 @@ class DemoDataSeederTest {
 		assertThat(jdbc.queryForObject("select mode from zone where name = ?", String.class, DemoDataSeeder.ZONE_NAME))
 				.isEqualTo("NORMAL");
 		assertThat(count("street_code")).isEqualTo(5);
-		assertThat(count("app_user")).isEqualTo(19);
+		assertThat(demoUsers()).isEqualTo(19);
 		assertThat(count("trusted_contact")).isEqualTo(3);
 		assertThat(count("medical_card")).isEqualTo(1);
 		assertThat(count("neighbor_service")).isEqualTo(7);
@@ -74,8 +74,13 @@ class DemoDataSeederTest {
 	@Test
 	void runningTwiceDoesNotDuplicate() throws Exception {
 		seeder.run();
-		assertThat(count("app_user")).isEqualTo(19);
+		assertThat(demoUsers()).isEqualTo(19);
 		assertThat(count("zone")).isEqualTo(1);
+	}
+
+	/** Los vecinos de la demo tienen zona; los creados por otras pruebas (FASE 3) no. */
+	private int demoUsers() {
+		return jdbc.queryForObject("select count(*) from app_user where zone_id is not null", Integer.class);
 	}
 
 	private int count(String table) {

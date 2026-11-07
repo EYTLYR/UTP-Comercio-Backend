@@ -35,8 +35,8 @@ public record NearbyProperties(
 			String devFixedCode) {
 	}
 
-	/** Token compartido del webhook /api/v1/sms/inbound. */
-	public record Sms(String inboundToken) {
+	/** provider: "console" (log, por defecto) o "twilio". inboundToken protege el webhook /api/v1/sms/inbound. */
+	public record Sms(@DefaultValue("console") String provider, String inboundToken) {
 	}
 
 	/** Activación automática del modo emergencia por cantidad de SOS en una ventana de tiempo. */

@@ -33,3 +33,15 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 8. **Historial del muro:** las publicaciones antiguas quedan en estado `DONE` y las recientes en `OPEN`. A cada una se le asignó la categoría que corresponde a su texto (escalera → `TOOL_LOAN`, etc.).
 9. **Fotos de los reportes de riesgo:** `photo_url` es una ruta de ejemplo (`/demo/risk/<categoria>.jpg`). Los archivos llegan con el `StorageService` de la fase 10. `photo_analysis` y `severity_hint` usan los textos PHOTO_AI del ANEXO B.
 10. **`V1__schema.sql`** se escribió a partir de la misma especificación que las entidades, para que coincidan con `ddl-auto=validate`. Desde ahora, cualquier cambio de esquema va en una migración nueva (`V2__...`).
+
+## Fase 3
+
+1. **`GET /api/v1/me` adelantado.** Lo piden las pruebas de esta fase y `verify` devuelve el `UserDto`, así que ya existe con `effectiveMode` calculado según la regla de la fase 4. El resto de `/me` llega en la fase 4.
+2. **Hash con pepper:** el código SMS se guarda como HMAC-SHA256(secreto JWT, `celular:código`) y se compara en tiempo constante. El token de refresco es aleatorio (32 bytes) y se guarda con el mismo HMAC.
+3. **Rotación con detección de reuso:** si llega un token de refresco ya rotado, se revocan todas las sesiones del usuario y se responde 401 `REFRESH_INVALID`.
+4. **Límite de intentos:** al pasar `max-attempts`, el código se quema (no sirve ni el correcto) y se responde 429 `OTP_TOO_MANY_ATTEMPTS`. Los intentos fallidos se guardan aunque haya error (`noRollbackFor`).
+5. **Límite de solicitudes:** cuenta los códigos pedidos por ese celular en la última hora (tabla `otp_code`) y responde 429 `OTP_TOO_MANY_REQUESTS`.
+6. **Usuario nuevo:** se crea con el nombre provisional «Vecino», `verified=false` y sin zona. La app lo completa en el registro, con `isNewUser=true`.
+7. **Claim `iss` = `nearby-api`.** Spring Security 7 agrega la autoridad `FACTOR_BEARER` junto a `ROLE_<rol>`, y eso es normal.
+8. **Validación:** cuando hay un solo error, `detail` es ese mensaje (por ejemplo, «Los celulares en Perú tienen 9 dígitos y empiezan con 9»), para que la app lo muestre tal cual.
+9. **SMS:** `nearby.sms.provider` elige `console` (por defecto) o `twilio` (preparado, sin implementar).

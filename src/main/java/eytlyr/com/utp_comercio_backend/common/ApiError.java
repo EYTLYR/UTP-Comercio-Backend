@@ -111,8 +111,9 @@ public class ApiError extends ResponseEntityExceptionHandler {
 	}
 
 	private static ProblemDetail validation(List<FieldMessage> errors) {
-		ProblemDetail pd = problem(HttpStatus.BAD_REQUEST, "Datos inválidos", "Revisa los campos marcados.",
-				VALIDATION_ERROR);
+		// Con un solo error, el detalle es ese mensaje: la app puede mostrarlo tal cual.
+		String detail = errors.size() == 1 ? errors.getFirst().message() : "Revisa los campos marcados.";
+		ProblemDetail pd = problem(HttpStatus.BAD_REQUEST, "Datos inválidos", detail, VALIDATION_ERROR);
 		pd.setProperty("errors", errors);
 		return pd;
 	}
@@ -130,6 +131,8 @@ public class ApiError extends ResponseEntityExceptionHandler {
 			case CONFLICT -> "Conflicto";
 			case FORBIDDEN -> "Acceso denegado";
 			case UNPROCESSABLE_CONTENT -> "Regla de negocio";
+			case UNAUTHORIZED -> "No autenticado";
+			case TOO_MANY_REQUESTS -> "Demasiados intentos";
 			default -> status.getReasonPhrase();
 		};
 	}

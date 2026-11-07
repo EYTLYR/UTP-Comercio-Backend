@@ -19,7 +19,13 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -49,17 +55,19 @@ public class SecurityConfig {
 			"Acceso denegado", "No tienes permiso para esta acción.", "FORBIDDEN");
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationConverter jwtAuthenticationConverter)
+			throws Exception {
 		http
 				.csrf(AbstractHttpConfigurer::disable)
 				.cors(cors -> { })
 				.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+						.requestMatchers("/api/v1/auth/logout").authenticated()
 						.requestMatchers(PUBLIC_PATHS).permitAll()
 						.anyRequest().authenticated())
 				.oauth2ResourceServer(rs -> rs
-						.jwt(jwt -> { })
+						.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
 						.authenticationEntryPoint(UNAUTHORIZED)
 						.accessDeniedHandler(FORBIDDEN))
 				.exceptionHandling(ex -> ex
@@ -76,6 +84,22 @@ public class SecurityConfig {
 	@Bean
 	JwtDecoder jwtDecoder(SecretKey jwtSecretKey) {
 		return NimbusJwtDecoder.withSecretKey(jwtSecretKey).macAlgorithm(MacAlgorithm.HS256).build();
+	}
+
+	@Bean
+	JwtEncoder jwtEncoder(SecretKey jwtSecretKey) {
+		return new NimbusJwtEncoder(new ImmutableSecret<>(jwtSecretKey));
+	}
+
+	/** El claim "role" (NEIGHBOR, BRIGADIST...) se convierte en la autoridad ROLE_NEIGHBOR, ROLE_BRIGADIST... */
+	@Bean
+	JwtAuthenticationConverter jwtAuthenticationConverter() {
+		JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
+		authorities.setAuthoritiesClaimName("role");
+		authorities.setAuthorityPrefix("ROLE_");
+		JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+		converter.setJwtGrantedAuthoritiesConverter(authorities);
+		return converter;
 	}
 
 	@Bean
