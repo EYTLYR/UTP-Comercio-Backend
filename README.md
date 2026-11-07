@@ -24,7 +24,7 @@ Stack:
 │ sync ─ paquete offline + cola · map · notification · storage                              │
 │                                                                                           │
 │ Dispatch (después del commit, @Async) ──► NotificationService (log | FCM)                 │
-│                                       └─► SmsGateway (console | Twilio)                   │
+│                                       └─► SmsGateway (console | microservicio SMS)        │
 │ CapabilityExtractor / PhotoRiskAnalyzer ──► reglas  |  Claude (claude-haiku-5-5)          │
 └───────────────────────────────────────────┬───────────────────────────────────────────────┘
                                             ▼
@@ -141,21 +141,26 @@ Hay un archivo `.http` por módulo en [requests/](requests/): auth, perfil, serv
 
 | Integración | En dev (por defecto) | Real |
 |---|---|---|
-| SMS (OTP y avisos) | `ConsoleSmsGateway`: escribe en el log, con el celular enmascarado | `NEARBY_SMS_PROVIDER=twilio` + `TWILIO_*` (API REST de Twilio, ver abajo) |
-| SMS entrante (SOS sin internet) | `POST /api/v1/sms/inbound` con `X-Nearby-Token` | Webhook de Twilio `POST /api/v1/sms/inbound/twilio` (firma `X-Twilio-Signature`, responde TwiML) |
+| SMS (OTP y avisos) | `ConsoleSmsGateway`: escribe en el log, con el celular enmascarado | `NEARBY_SMS_PROVIDER=gateway`: microservicio SMS (celular Android con SMS Gateway), ver abajo |
+| SMS entrante (SOS sin internet) | `POST /api/v1/sms/inbound` con `X-Nearby-Token` | El microservicio SMS reenvía cada SMS recibido a ese mismo endpoint |
 | Push | `LoggingNotificationService`: escribe en el log | `NEARBY_NOTIFICATIONS_PROVIDER=fcm` (preparado en `FcmNotificationService`) |
 | IA de texto (inventario) | Reglas del ANEXO B | `NEARBY_AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` (Claude `claude-haiku-5-5`, con respaldo de reglas) |
 | IA de visión (fotos El Niño) | Texto PHOTO_AI según la categoría | Lo mismo que la IA de texto: Claude con visión y respaldo de reglas |
 | Fotos | Neon Object Storage (S3, bucket privado `nearby`, carpeta `risk-photos/`), servidas por la API en `/files/...` | Igual; sirve cualquier S3 (AWS, R2, MinIO) cambiando `AWS_ENDPOINT_URL_S3` |
 | Aviso meteorológico | Lo ingresa la Municipalidad en `/admin/zones/{id}/mode` | Leerlo de una fuente oficial (SENAMHI) |
 
-## SMS reales con Twilio
+## SMS reales (microservicio SMS)
 
-1. **Número de Twilio** (el remitente): en la consola, *Phone Numbers → Manage → Buy a number* (la cuenta de prueba trae uno gratis; elige uno de EE. UU. con SMS). Ponlo en `TWILIO_FROM` (formato `+1...`).
-2. **Perú habilitado:** *Messaging → Settings → Geo permissions* → marca **Peru**.
-3. **Números que reciben** (solo en cuenta de prueba): *Phone Numbers → Manage → Verified Caller IDs → Add a new Caller ID*, con `+51` y el celular. Twilio manda un código para confirmarlo. A los números no verificados el envío falla (error 21608).
-4. **Activar:** en `.env`, `NEARBY_SMS_PROVIDER=twilio` y reinicia el backend. Si falta alguna variable, el backend no arranca y lo dice.
-5. **SOS sin internet (entrante):** en el número de Twilio, *Messaging configuration → A message comes in → Webhook*, `POST` a `https://<tu-api>/api/v1/sms/inbound/twilio`. La misma URL va en `NEARBY_TWILIO_WEBHOOK_URL`. El backend debe estar publicado (Railway/Render) o detrás de un túnel (ngrok).
+Los SMS reales salen de un celular Android con chip peruano y la app **SMS Gateway for Android**. El backend no habla con el celular: consume el microservicio aparte [`sms-gateway-demo`](../sms-gateway-demo/README.md).
+
+```text
+Backend ── POST /v1/messages (X-Api-Key) ──► microservicio SMS ──► sms-gate.app ──► celular ──► SMS
+SMS entrante ──► celular ──► microservicio ── POST /api/v1/sms/inbound (X-Nearby-Token) ──► backend
+```
+
+1. Levanta el microservicio (`npm start` en `sms-gateway-demo`, puerto 3000) con el celular conectado.
+2. En el `.env` del backend: `NEARBY_SMS_PROVIDER=gateway`, `NEARBY_SMS_GATEWAY_URL=http://localhost:3000` y `NEARBY_SMS_GATEWAY_API_KEY` igual a `SERVICE_API_KEY` del microservicio. Si falta alguna, el backend no arranca y lo dice.
+3. Para los SMS entrantes, en el microservicio: `FORWARD_URL=http://localhost:8080/api/v1/sms/inbound` y `FORWARD_TOKEN` igual a `NEARBY_SMS_INBOUND_TOKEN` del backend.
 
 Si el SMS del código de ingreso falla y hay código fijo (dev/demo), igual se puede entrar con ese código; sin código fijo la API responde `422 SMS_SEND_FAILED`. Los avisos del SOS que fallan se registran en el log y no detienen el SOS.
 
@@ -165,9 +170,8 @@ Si el SMS del código de ingreso falla y hay código fijo (dev/demo), igual se p
 |---|---|---|
 | `NEARBY_JWT_SECRET` | Secreto HS256 (32 caracteres o más) | Valor de desarrollo |
 | `NEARBY_SMS_INBOUND_TOKEN` | Token del webhook `/api/v1/sms/inbound` | `dev-sms-token` |
-| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` | Cuenta y número de Twilio (con `NEARBY_SMS_PROVIDER=twilio`) | — |
-| `NEARBY_TWILIO_WEBHOOK_URL` | URL pública del webhook de Twilio (para validar la firma) | URL de la petición |
-| `NEARBY_SMS_PROVIDER` / `NEARBY_NOTIFICATIONS_PROVIDER` | Proveedores reales | `console` / `log` |
+| `NEARBY_SMS_GATEWAY_URL`, `NEARBY_SMS_GATEWAY_API_KEY` | Microservicio SMS (con `NEARBY_SMS_PROVIDER=gateway`) | `http://localhost:3000` / — |
+| `NEARBY_SMS_PROVIDER` / `NEARBY_NOTIFICATIONS_PROVIDER` | Proveedores reales (`gateway` para SMS) | `console` / `log` |
 | `NEARBY_STORAGE_PROVIDER`, `NEARBY_S3_BUCKET`, `NEARBY_S3_PREFIX` | Fotos en S3 | `s3` / — / `risk-photos/` |
 | `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | Credenciales S3 (Neon) | — / — / — / `us-east-2` |
 | `NEARBY_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `NEARBY_AI_MODEL` | IA con Claude | `rules` / — / `claude-haiku-5-5` |

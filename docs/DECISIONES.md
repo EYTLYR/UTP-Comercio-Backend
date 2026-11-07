@@ -44,7 +44,7 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 6. **Usuario nuevo:** se crea con el nombre provisional «Vecino», `verified=false` y sin zona. La app lo completa en el registro, con `isNewUser=true`.
 7. **Claim `iss` = `nearby-api`.** Spring Security 7 agrega la autoridad `FACTOR_BEARER` junto a `ROLE_<rol>`, y eso es normal.
 8. **Validación:** cuando hay un solo error, `detail` es ese mensaje (por ejemplo, «Los celulares en Perú tienen 9 dígitos y empiezan con 9»), para que la app lo muestre tal cual.
-9. **SMS:** `nearby.sms.provider` elige `console` (por defecto) o `twilio` (preparado, sin implementar).
+9. **SMS:** `nearby.sms.provider` elige `console` (por defecto) o `gateway` (microservicio SMS; antes `twilio`, preparado sin implementar).
 
 ## Fase 4
 
@@ -190,9 +190,11 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 - **Sin carpeta local:** se quitó `LocalStorageService`. Las pruebas usan `MemoryStorageService` (`nearby.storage.provider=memory`) y no tocan Neon.
 - **Secretos:** en `.env` (ignorado por git), que leen Spring Boot (`spring.config.import: optional:file:.env[.properties]`) y `docker compose --env-file`.
 
-## SMS reales con Twilio
+## SMS reales: microservicio con SMS Gateway for Android
 
-- **Envío:** `TwilioSmsGateway` usa la API REST de Twilio con `java.net.http` (sin SDK): formulario `To`, `From`, `Body` y autenticación básica. Los celulares se envían como `+51` y 9 dígitos.
-- **Fallas:** si Twilio rechaza el código de ingreso y no hay código fijo, la API responde `422 SMS_SEND_FAILED`. Los avisos del SOS que fallan solo quedan en el log: el SOS nunca falla por el proveedor.
-- **Entrante:** Twilio no puede mandar `X-Nearby-Token`, así que tiene su propio webhook (`/api/v1/sms/inbound/twilio`) que valida la firma `X-Twilio-Signature` (HMAC-SHA1 de la URL y los parámetros con el Auth Token). Detrás de un proxy la URL que ve la app cambia, por eso se puede fijar con `NEARBY_TWILIO_WEBHOOK_URL`.
-- **Respuesta:** TwiML. Si el SMS trae un código válido, se crea el reporte y se contesta «Nearby recibió tu SOS».
+- **Por qué no Twilio:** la cuenta de prueba solo envía plantillas fijas (error 572006), así que no puede mandar el código de ingreso ni los avisos del SOS. Pasar a pago no era opción para el hackathon.
+- **Cómo:** un celular Android con chip peruano y la app SMS Gateway (modo nube) envía y recibe los SMS. Los vecinos ven un número local y los SMS los cubre el plan del chip.
+- **Microservicio aparte** (`sms-gateway-demo`, Node sin dependencias): es lo único que habla con sms-gate.app. El backend solo llama a `POST /v1/messages` con `X-Api-Key` (`GatewaySmsGateway`, `nearby.sms.provider=gateway`). Si mañana se cambia de proveedor, solo cambia el microservicio.
+- **Entrante:** el microservicio valida la firma del webhook de sms-gate (HMAC-SHA256) y reenvía el SMS al endpoint que ya existía, `/api/v1/sms/inbound` con `X-Nearby-Token`. El backend no necesita saber de dónde viene.
+- **Fallas:** si el código de ingreso no sale y no hay código fijo, `422 SMS_SEND_FAILED`. Los avisos del SOS que fallan solo quedan en el log: el SOS nunca falla por el proveedor.
+- **160 caracteres:** el SMS del SOS usa coordenadas con 5 decimales para entrar en un solo mensaje.

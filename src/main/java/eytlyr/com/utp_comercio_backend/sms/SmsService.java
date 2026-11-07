@@ -114,7 +114,7 @@ public class SmsService {
 		return receive(sms);
 	}
 
-	/** SMS que ya pasó la verificación de origen (token propio o firma de Twilio). */
+	/** SMS que ya pasó la verificación de origen (token del webhook). */
 	@Transactional
 	public InboundResult receive(InboundSms sms) {
 		Matcher m = SosCodec.CODE_IN_TEXT.matcher(sms.body() == null ? "" : sms.body().toUpperCase());

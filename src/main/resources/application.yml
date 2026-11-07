@@ -70,11 +70,9 @@ nearby:
   sms:
     provider: ${NEARBY_SMS_PROVIDER:console}
     inbound-token: ${NEARBY_SMS_INBOUND_TOKEN:}
-    twilio:
-      account-sid: ${TWILIO_ACCOUNT_SID:}
-      auth-token: ${TWILIO_AUTH_TOKEN:}
-      from: ${TWILIO_FROM:}
-      webhook-url: ${NEARBY_TWILIO_WEBHOOK_URL:}
+    gateway:
+      url: ${NEARBY_SMS_GATEWAY_URL:http://localhost:3000}
+      api-key: ${NEARBY_SMS_GATEWAY_API_KEY:}
   emergency:
     auto-activate-sos-count: 5
     auto-activate-window-minutes: 10

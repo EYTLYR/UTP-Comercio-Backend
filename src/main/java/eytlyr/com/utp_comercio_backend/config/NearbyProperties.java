@@ -37,16 +37,13 @@ public record NearbyProperties(
 	}
 
 	/**
-	 * provider: "console" (log, por defecto) o "twilio". inboundToken protege el webhook /api/v1/sms/inbound;
-	 * el de Twilio (/api/v1/sms/inbound/twilio) se valida con la firma X-Twilio-Signature.
+	 * provider: "console" (log, por defecto) o "gateway" (microservicio SMS, ver sms-gateway-demo).
+	 * inboundToken protege /api/v1/sms/inbound, donde el microservicio reenvía los SMS recibidos.
 	 */
-	public record Sms(@DefaultValue("console") String provider, String inboundToken, @DefaultValue Twilio twilio) {
+	public record Sms(@DefaultValue("console") String provider, String inboundToken, @DefaultValue Gateway gateway) {
 
-		/**
-		 * Cuenta de Twilio. from: número de Twilio en formato E.164 (+1...). webhookUrl: URL pública exacta
-		 * configurada en Twilio (detrás de un proxy la URL que ve la app no coincide y la firma fallaría).
-		 */
-		public record Twilio(String accountSid, String authToken, String from, String webhookUrl) {
+		/** Microservicio SMS: url base (http://localhost:3000) y la clave que espera en X-Api-Key. */
+		public record Gateway(@DefaultValue("http://localhost:3000") String url, String apiKey) {
 		}
 	}
 

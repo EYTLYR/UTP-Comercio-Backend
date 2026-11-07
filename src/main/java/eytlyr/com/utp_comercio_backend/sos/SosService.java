@@ -125,8 +125,9 @@ public class SosService {
 		Dispatch.Builder d = Dispatch.builder();
 		neighbors.forEach(u -> d.push(u.getId(), title, distanceText(u, req.lat(), req.lng()), data));
 		brigade.forEach(u -> d.push(u.getId(), title, "Brigada: revisa el tablero", data));
+		// 5 decimales (~1 m) para que el SMS entre en 160 caracteres.
 		String sms = "NEARBY SOS: " + me.getName() + " necesita ayuda. Ubicación: https://maps.google.com/?q="
-				+ req.lat() + "," + req.lng() + " · Código " + smsCode;
+				+ String.format(java.util.Locale.ROOT, "%.5f,%.5f", req.lat(), req.lng()) + " · Código " + smsCode;
 		myContacts.forEach(c -> d.sms(c.getPhone(), sms));
 		events.publishEvent(d.build());
 
