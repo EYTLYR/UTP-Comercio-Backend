@@ -9,7 +9,7 @@ RUN ./mvnw -q -B package -DskipTests
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-RUN useradd --system --uid 1001 nearby && mkdir -p /app/uploads && chown nearby /app/uploads
+RUN useradd --system --uid 1001 nearby
 COPY --from=build /app/target/*.jar /app/app.jar
 USER nearby
 ENV SPRING_PROFILES_ACTIVE=prod \

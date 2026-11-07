@@ -2,7 +2,10 @@
 #   dev   (por defecto) PostgreSQL con Docker Compose Support (compose.yaml).
 #   local dev sin Docker: PostgreSQL ya instalado o el repo UTP-Comercio-Data-Base.
 #   prod  todo por variables de entorno.
+# Los secretos (Neon PostgreSQL y S3) van en .env, que no se sube a git (ver .env.example).
 spring:
+  config:
+    import: optional:file:.env[.properties]
   application:
     name: utp-comercio-backend
   profiles:
@@ -73,8 +76,13 @@ nearby:
     model: ${NEARBY_AI_MODEL:claude-haiku-5-5}
     api-key: ${ANTHROPIC_API_KEY:}
   storage:
-    provider: ${NEARBY_STORAGE_PROVIDER:local}
-    local-dir: ${NEARBY_STORAGE_DIR:./uploads}
+    provider: ${NEARBY_STORAGE_PROVIDER:s3}
+    bucket: ${NEARBY_S3_BUCKET:}
+    endpoint: ${AWS_ENDPOINT_URL_S3:}
+    region: ${AWS_REGION:us-east-2}
+    access-key: ${AWS_ACCESS_KEY_ID:}
+    secret-key: ${AWS_SECRET_ACCESS_KEY:}
+    prefix: ${NEARBY_S3_PREFIX:risk-photos/}
   cors:
     allowed-origin-patterns: ${NEARBY_CORS_ORIGINS:}
 
@@ -104,6 +112,11 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5435/utp_comercio_db}
     username: ${DB_USER:utp_comercio_user}
     password: ${DB_PASSWORD:}
+  # Neon: la app usa el pooler y Flyway la conexión directa (DB_MIGRATION_URL), como recomienda Neon.
+  flyway:
+    url: ${DB_MIGRATION_URL:${DB_URL:jdbc:postgresql://localhost:5435/utp_comercio_db}}
+    user: ${DB_USER:utp_comercio_user}
+    password: ${DB_PASSWORD:}
 
 ---
 spring:
@@ -116,6 +129,10 @@ spring:
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  flyway:
+    url: ${DB_MIGRATION_URL:${DB_URL}}
+    user: ${DB_USER}
     password: ${DB_PASSWORD}
 nearby:
   otp:

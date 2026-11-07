@@ -69,8 +69,13 @@ public record NearbyProperties(
 		}
 	}
 
-	/** provider: "local" (disco, por defecto) o "s3" (preparado). */
-	public record Storage(@DefaultValue("local") String provider, @DefaultValue("./uploads") String localDir) {
+	/**
+	 * provider: "s3" (por defecto: Neon Object Storage o cualquier S3 compatible) o "memory" (solo pruebas).
+	 * endpoint vacío = AWS S3; accessKey/secretKey vacíos = cadena de credenciales por defecto de AWS.
+	 */
+	public record Storage(@DefaultValue("s3") String provider, String bucket, String endpoint,
+			@DefaultValue("us-east-2") String region, String accessKey, String secretKey,
+			@DefaultValue("risk-photos/") String prefix) {
 	}
 
 	/** Límites de peticiones en memoria (por usuario; el de OTP, por IP). */

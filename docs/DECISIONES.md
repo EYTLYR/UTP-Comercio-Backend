@@ -157,7 +157,7 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
    - Se abre un chat sin contexto de publicación con el vecino que presta y se agrega el mensaje del sistema.
    - Se marca «coordinado» y se avisa a las viviendas a 300 m (`notifiedHomes` no cuenta a quien coordina) y al vecino que presta.
 8. **Fotos:**
-   - Se aceptan JPG o PNG de hasta 5 MB y se guardan con `StorageService`. En dev, en `./uploads`, servidas públicamente en `/files/{uuid}.jpg` con nombres aleatorios; S3 queda preparado.
+   - Se aceptan JPG o PNG de hasta 5 MB y se guardan con `StorageService`. Van a Neon Object Storage (S3, bucket privado) y la API las sirve en `/files/{uuid}.jpg` con nombres aleatorios.
    - `AnthropicPhotoRiskAnalyzer` (visión, SDK oficial, 8 s de tiempo máximo) tiene como respaldo el analizador de reglas PHOTO_AI.
 9. **El seeder ejecuta el radar al final**, así la demo arranca con la quebrada en rojo y Jr. Los Pinos en ámbar.
 
@@ -179,5 +179,13 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 5. **Logs:** `X-Correlation-Id` (se respeta el que envía el cliente si es seguro) va al MDC `cid` y aparece en el patrón del log. El SMS de consola enmascara el celular. El código OTP se ve en el log solo en dev, que es su propósito.
 6. **Perfil `demo`:** carga la semilla también en producción (`prod,demo`).
    - `NEARBY_OTP_DEV_CODE` permite fijar el código SMS en una demo pública. Vacío, el código es aleatorio.
-   - El Dockerfile usa la imagen JRE de Temurin 21, un usuario sin privilegios y las fotos en `/app/uploads` (volumen).
+   - El Dockerfile usa la imagen JRE de Temurin 21, y un usuario sin privilegios. Sin volúmenes: la base y las fotos están en Neon.
 7. **`docs/API.md`** se generó desde `/v3/api-docs` (86 operaciones), con los roles tomados de `@PreAuthorize`.
+
+## Neon: base y fotos en la nube
+
+- **Base:** Neon PostgreSQL. La app usa el host con `-pooler` (muchas conexiones cortas) y Flyway la conexión directa (`DB_MIGRATION_URL`), como recomienda Neon para migraciones. `sslmode=require&channelBinding=require`.
+- **Fotos:** Neon Object Storage, compatible con S3, con el SDK oficial de AWS v2. Path-style y checksums solo cuando se requieren (los S3 compatibles rechazan los CRC que el SDK agrega por defecto).
+- **Bucket privado:** la API sirve cada foto en `/files/{uuid}.jpg`. Así la URL guardada en el reporte no caduca (una URL firmada sí) y no hay que abrir el bucket al público. Solo se aceptan nombres generados por la API.
+- **Sin carpeta local:** se quitó `LocalStorageService`. Las pruebas usan `MemoryStorageService` (`nearby.storage.provider=memory`) y no tocan Neon.
+- **Secretos:** en `.env` (ignorado por git), que leen Spring Boot (`spring.config.import: optional:file:.env[.properties]`) y `docker compose --env-file`.

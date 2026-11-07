@@ -1,33 +1,22 @@
 # Producción (VPS, Railway o Render): docker compose -f compose.prod.yaml --env-file .env up -d --build
-# Copia .env.example a .env y cambia los secretos antes de levantar.
+# Copia .env.example a .env y llena los secretos. La base es Neon PostgreSQL y las fotos van a Neon
+# Object Storage (S3), así que aquí solo corre la app.
 services:
-  db:
-    image: 'postgres:16-alpine'
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${DB_NAME:-nearby}
-      POSTGRES_USER: ${DB_USER:-nearby}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
-      TZ: America/Lima
-    volumes:
-      - 'nearby-prod-data:/var/lib/postgresql/data'
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-nearby} -d ${DB_NAME:-nearby}']
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   app:
     build: .
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
-      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-nearby}
-      DB_USER: ${DB_USER:-nearby}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_URL: ${DB_URL:?Define DB_URL (Neon, pooler) en .env}
+      DB_MIGRATION_URL: ${DB_MIGRATION_URL:-}
+      DB_USER: ${DB_USER:?Define DB_USER en .env}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en .env}
+      NEARBY_STORAGE_PROVIDER: s3
+      NEARBY_S3_BUCKET: ${NEARBY_S3_BUCKET:?Define NEARBY_S3_BUCKET en .env}
+      AWS_ENDPOINT_URL_S3: ${AWS_ENDPOINT_URL_S3:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?Define AWS_ACCESS_KEY_ID en .env}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?Define AWS_SECRET_ACCESS_KEY en .env}
+      AWS_REGION: ${AWS_REGION:-us-east-2}
       NEARBY_JWT_SECRET: ${NEARBY_JWT_SECRET:?Define NEARBY_JWT_SECRET (32+ caracteres) en .env}
       NEARBY_SMS_INBOUND_TOKEN: ${NEARBY_SMS_INBOUND_TOKEN:?Define NEARBY_SMS_INBOUND_TOKEN en .env}
       NEARBY_CORS_ORIGINS: ${NEARBY_CORS_ORIGINS:-}
@@ -37,9 +26,3 @@ services:
       NEARBY_SWAGGER_ENABLED: ${NEARBY_SWAGGER_ENABLED:-false}
     ports:
       - '${PORT:-8080}:8080'
-    volumes:
-      - 'nearby-uploads:/app/uploads'
-
-volumes:
-  nearby-prod-data:
-  nearby-uploads:

@@ -32,9 +32,17 @@
 		<anthropic-java.version>3.2.0</anthropic-java.version>
 		<embedded-postgres.version>2.2.2</embedded-postgres.version>
 		<embedded-postgres-binaries.version>16.15.0</embedded-postgres-binaries.version>
+		<aws-sdk.version>2.57.11</aws-sdk.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
+			<dependency>
+				<groupId>software.amazon.awssdk</groupId>
+				<artifactId>bom</artifactId>
+				<version>${aws-sdk.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
 			<!-- PostgreSQL 16 embebido (mismo major que compose.yaml) para pruebas sin Docker -->
 			<dependency>
 				<groupId>io.zonky.test.postgres</groupId>
@@ -79,6 +87,17 @@
 			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
 		<!-- IA opcional (nearby.ai.provider=anthropic): SDK oficial de Anthropic -->
+		<!-- Fotos en S3 compatible (Neon Object Storage) -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>software.amazon.awssdk</groupId>
+					<artifactId>netty-nio-client</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 		<dependency>
 			<groupId>com.anthropic</groupId>
 			<artifactId>anthropic-java</artifactId>

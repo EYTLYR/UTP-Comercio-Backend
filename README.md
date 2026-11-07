@@ -6,7 +6,7 @@ Backend de **Nearby**, la app de vecinos de San Juan de Lurigancho. Sirve para:
 - coordinar la ayuda cuando hay una emergencia (sismo, huaico) o en prevención ante el Fenómeno El Niño.
 
 Stack:
-- Java 21 · Spring Boot 4.1 · PostgreSQL 16 · Flyway · Spring Security (JWT HS256) · springdoc.
+- Java 21 · Spring Boot 4.1 · PostgreSQL (Neon) · Flyway · Spring Security (JWT HS256) · springdoc · fotos en Neon Object Storage (S3).
 - IA por reglas, o con Claude (SDK oficial de Anthropic) si se activa.
 
 ## Arquitectura
@@ -28,7 +28,7 @@ Stack:
 │ CapabilityExtractor / PhotoRiskAnalyzer ──► reglas  |  Claude (claude-haiku-5-5)          │
 └───────────────────────────────────────────┬───────────────────────────────────────────────┘
                                             ▼
-                          PostgreSQL 16 (Flyway V1..V3) · fotos en ./uploads (o S3)
+                 Neon PostgreSQL (Flyway V1..V3) · fotos en Neon Object Storage (S3, bucket nearby)
 ```
 
 - **Paquetes por funcionalidad:** cada uno tiene su entidad, repositorio, servicio, controlador y `dto/`.
@@ -37,9 +37,17 @@ Stack:
 
 ## Cómo correrlo
 
-Elige una de estas tres formas.
+Los secretos van en **`.env`** (no se sube a git). Cópialo de [.env.example](.env.example) y llena la base de Neon y las credenciales S3. Spring Boot lo lee solo (`spring.config.import`).
 
-**1. Sin Docker y sin instalar nada (lo más rápido para la demo).** Usa un PostgreSQL 16 embebido y carga los datos de la demo. Se borra al detener la app.
+Elige una de estas formas.
+
+**0. Con Neon (base y fotos en la nube, lo normal ahora).** Perfil `local`: usa `DB_URL` y las credenciales S3 del `.env`. Si la base está vacía, Flyway crea las tablas y se cargan los datos de la demo.
+
+```bash
+./mvnw spring-boot:run "-Dspring-boot.run.profiles=local"
+```
+
+**1. Sin Docker y sin internet.** Usa un PostgreSQL 16 embebido y fotos en memoria, y carga los datos de la demo. Se borra al detener la app.
 
 ```bash
 ./mvnw spring-boot:test-run
@@ -58,10 +66,10 @@ $env:DB_URL="jdbc:postgresql://localhost:5435/utp_comercio_db"; $env:DB_USER="ut
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-**Producción** (VPS, Railway o Render) con `Dockerfile` multi-stage y `compose.prod.yaml` (app + PostgreSQL):
+**Producción** (VPS, Railway o Render) con `Dockerfile` multi-stage y `compose.prod.yaml` (solo la app; base y fotos en Neon):
 
 ```bash
-cp .env.example .env   # cambia los secretos
+cp .env.example .env   # llena Neon y S3, cambia los secretos
 docker compose -f compose.prod.yaml --env-file .env up -d --build
 ```
 
@@ -79,7 +87,7 @@ docker compose -f compose.prod.yaml --env-file .env up -d --build
 ./mvnw verify
 ```
 
-Son 82 pruebas contra PostgreSQL 16 real: Testcontainers si hay Docker, embebido si no.
+Son 82 pruebas contra PostgreSQL 16 real: Testcontainers si hay Docker, embebido si no. Las fotos van a memoria: las pruebas no tocan Neon ni S3.
 
 Cubren la lógica clave:
 - el codec SMS y el clasificador;
@@ -135,7 +143,7 @@ Hay un archivo `.http` por módulo en [requests/](requests/): auth, perfil, serv
 | Push | `LoggingNotificationService`: escribe en el log | `NEARBY_NOTIFICATIONS_PROVIDER=fcm` (preparado en `FcmNotificationService`) |
 | IA de texto (inventario) | Reglas del ANEXO B | `NEARBY_AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` (Claude `claude-haiku-5-5`, con respaldo de reglas) |
 | IA de visión (fotos El Niño) | Texto PHOTO_AI según la categoría | Lo mismo que la IA de texto: Claude con visión y respaldo de reglas |
-| Fotos | Disco `./uploads`, servidas en `/files/...` | `NEARBY_STORAGE_PROVIDER=s3` (preparado en `S3StorageService`) |
+| Fotos | Neon Object Storage (S3, bucket privado `nearby`, carpeta `risk-photos/`), servidas por la API en `/files/...` | Igual; sirve cualquier S3 (AWS, R2, MinIO) cambiando `AWS_ENDPOINT_URL_S3` |
 | Aviso meteorológico | Lo ingresa la Municipalidad en `/admin/zones/{id}/mode` | Leerlo de una fuente oficial (SENAMHI) |
 
 ## Variables de entorno
@@ -144,12 +152,15 @@ Hay un archivo `.http` por módulo en [requests/](requests/): auth, perfil, serv
 |---|---|---|
 | `NEARBY_JWT_SECRET` | Secreto HS256 (32 caracteres o más) | Valor de desarrollo |
 | `NEARBY_SMS_INBOUND_TOKEN` | Token del webhook `/api/v1/sms/inbound` | `dev-sms-token` |
-| `NEARBY_SMS_PROVIDER` / `NEARBY_NOTIFICATIONS_PROVIDER` / `NEARBY_STORAGE_PROVIDER` | Proveedores reales | `console` / `log` / `local` |
+| `NEARBY_SMS_PROVIDER` / `NEARBY_NOTIFICATIONS_PROVIDER` | Proveedores reales | `console` / `log` |
+| `NEARBY_STORAGE_PROVIDER`, `NEARBY_S3_BUCKET`, `NEARBY_S3_PREFIX` | Fotos en S3 | `s3` / — / `risk-photos/` |
+| `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | Credenciales S3 (Neon) | — / — / — / `us-east-2` |
 | `NEARBY_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `NEARBY_AI_MODEL` | IA con Claude | `rules` / — / `claude-haiku-5-5` |
 | `NEARBY_CORS_ORIGINS` | Orígenes CORS (patrones separados por coma) | `http://localhost:*` |
 | `NEARBY_OTP_DEV_CODE` | Código SMS fijo en prod (solo para una demo) | — (en dev es `123456`) |
 | `NEARBY_SWAGGER_ENABLED` | Swagger en prod | `false` |
-| `DB_URL`, `DB_USER`, `DB_PASSWORD` | Base de datos (perfiles `local` y `prod`) | — |
+| `DB_URL`, `DB_USER`, `DB_PASSWORD` | Base de datos (perfiles `local` y `prod`); en Neon, el host con `-pooler` | — |
+| `DB_MIGRATION_URL` | Conexión directa (sin `-pooler`) para Flyway | `DB_URL` |
 | `PORT` | Puerto HTTP | `8080` |
 
 ## Seguridad y robustez
