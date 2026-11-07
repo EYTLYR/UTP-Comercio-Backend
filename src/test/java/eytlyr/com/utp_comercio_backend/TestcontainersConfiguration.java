@@ -23,7 +23,7 @@ import org.testcontainers.utility.DockerImageName;
  * Con Docker usa Testcontainers; sin Docker usa un PostgreSQL embebido (zonky) con el mismo major.
  */
 @TestConfiguration(proxyBeanMethods = false)
-class TestcontainersConfiguration {
+public class TestcontainersConfiguration {
 
 	@Bean
 	@ServiceConnection
