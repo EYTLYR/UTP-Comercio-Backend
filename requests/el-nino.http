@@ -1,0 +1,54 @@
+### FASE 10 · El Niño: radar preventivo, mapa de calor y mitigación (ingresa con requests/auth.http)
+@base = http://localhost:8080
+@token = pega-aqui-el-accessToken
+
+### Analizar con IA -> Quebrada Canto Grande RED (3) y Jr. Los Pinos AMBER (2)
+POST {{base}}/api/v1/risk-zones/analyze
+Authorization: Bearer {{token}}
+
+### MOMENTO WOW: tercer reporte en Jr. Los Pinos -> escalated=true, la zona pasa a RED y aparece la Familia Ríos
+POST {{base}}/api/v1/risk-reports
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "clientId": "e1d0a8b2-0000-4000-8000-000000000001", "category": "SEEPAGE", "text": "Está brotando agua por la pared de la sala", "addressText": "Jr. Los Pinos 330" }
+
+### Mismo reporte con foto (multipart: data JSON + photo)
+POST {{base}}/api/v1/risk-reports
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=NB
+
+--NB
+Content-Disposition: form-data; name="data"
+Content-Type: application/json
+
+{ "clientId": "e1d0a8b2-0000-4000-8000-000000000002", "category": "ACEQUIA_OVERFLOW", "addressText": "Jr. Los Pinos 352" }
+--NB
+Content-Disposition: form-data; name="photo"; filename="acequia.jpg"
+Content-Type: image/jpeg
+
+< ./acequia.jpg
+--NB--
+
+### Zonas de riesgo con patrón, alerta y mitigación sugerida
+GET {{base}}/api/v1/risk-zones
+Authorization: Bearer {{token}}
+
+### Sí, coordinar ayuda (reemplaza el id de la zona)
+POST {{base}}/api/v1/risk-zones/00000000-0000-0000-0000-000000000000/coordinate
+Authorization: Bearer {{token}}
+
+### Mapa de calor
+GET {{base}}/api/v1/map/heat
+Authorization: Bearer {{token}}
+
+### Mitigación: resumen, listados y publicar
+GET {{base}}/api/v1/mitigation/summary
+Authorization: Bearer {{token}}
+
+###
+POST {{base}}/api/v1/mitigation
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "mitigationType": "SANDBAGS", "kind": "NEED", "text": "Sacos para la puerta, ya entra agua", "quantity": 6 }

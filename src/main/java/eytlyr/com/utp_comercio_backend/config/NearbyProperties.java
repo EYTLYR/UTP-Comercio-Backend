@@ -68,7 +68,8 @@ public record NearbyProperties(
 		}
 	}
 
-	public record Storage(@DefaultValue("./uploads") String localDir) {
+	/** provider: "local" (disco, por defecto) o "s3" (preparado). */
+	public record Storage(@DefaultValue("local") String provider, @DefaultValue("./uploads") String localDir) {
 	}
 
 	/** Orígenes permitidos para CORS (patrones). Vacío = sin CORS. */

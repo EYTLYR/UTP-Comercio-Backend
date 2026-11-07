@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import eytlyr.com.utp_comercio_backend.ai.CapabilityIndexer;
+import eytlyr.com.utp_comercio_backend.prevention.RiskClusteringService;
 import eytlyr.com.utp_comercio_backend.common.BaseEntity;
 import eytlyr.com.utp_comercio_backend.emergency.ListingKind;
 import eytlyr.com.utp_comercio_backend.emergency.Priority;
@@ -34,6 +35,7 @@ import eytlyr.com.utp_comercio_backend.posts.PostType;
 import eytlyr.com.utp_comercio_backend.prevention.MitigationType;
 import eytlyr.com.utp_comercio_backend.prevention.RiskCategory;
 import eytlyr.com.utp_comercio_backend.prevention.RiskReport;
+import eytlyr.com.utp_comercio_backend.prevention.RuleBasedPhotoRiskAnalyzer;
 import eytlyr.com.utp_comercio_backend.services.NeighborService;
 import eytlyr.com.utp_comercio_backend.services.Review;
 import eytlyr.com.utp_comercio_backend.services.ServiceCategory;
@@ -68,17 +70,21 @@ public class DemoDataSeeder implements CommandLineRunner {
 
 	private final CapabilityIndexer indexer;
 
+	private final RiskClusteringService radar;
+
 	private final Map<String, AppUser> users = new HashMap<>();
 
 	private Zone zone;
 
 	private OffsetDateTime now;
 
-	public DemoDataSeeder(ZoneRepository zones, EntityManager em, Clock clock, CapabilityIndexer indexer) {
+	public DemoDataSeeder(ZoneRepository zones, EntityManager em, Clock clock, CapabilityIndexer indexer,
+			RiskClusteringService radar) {
 		this.zones = zones;
 		this.em = em;
 		this.clock = clock;
 		this.indexer = indexer;
+		this.radar = radar;
 	}
 
 	/** Cuadrícula del prototipo (x,y de 0 a 100, unos 12 m por unidad) → latitud. */
@@ -112,6 +118,9 @@ public class DemoDataSeeder implements CommandLineRunner {
 		em.flush();
 		int learned = indexer.reindexZone(zone.getId());
 		log.info("Inventario de supervivencia: {} capacidades aprendidas.", learned);
+		// Radar El Niño: Quebrada Canto Grande en rojo (3 reportes) y Jr. Los Pinos en ámbar (2 reportes).
+		var zonesFound = radar.recompute(zone.getId()).zones();
+		log.info("Radar preventivo: {} zonas de riesgo.", zonesFound.size());
 		log.info("Datos demo cargados: {} con {} vecinos.", ZONE_NAME, users.size());
 	}
 
@@ -428,31 +437,10 @@ public class DemoDataSeeder implements CommandLineRunner {
 				.build();
 		if (photo) {
 			r.setPhotoUrl("/demo/risk/" + category.name().toLowerCase() + ".jpg");
-			r.setPhotoAnalysis(photoAnalysis(category));
-			r.setSeverityHint(severity(category));
+			r.setPhotoAnalysis(RuleBasedPhotoRiskAnalyzer.summary(category));
+			r.setSeverityHint(RuleBasedPhotoRiskAnalyzer.severity(category));
 		}
 		saveAt(r, ago);
-	}
-
-	/** Mismos textos que el analizador de reglas del ANEXO B (PHOTO_AI). */
-	static String photoAnalysis(RiskCategory category) {
-		return switch (category) {
-			case ACEQUIA_OVERFLOW -> "Agua corriendo sobre la vereda, cauce al 95 %. Riesgo alto de desborde.";
-			case STREET_FLOODING -> "Agua acumulada de unos 25 cm en la pista. Riesgo medio de aniego.";
-			case SEEPAGE -> "Mancha de humedad y agua brotando del piso. Posible filtración subterránea.";
-			case RAVINE_ACTIVITY -> "Lodo y piedras en el cauce. Posible activación de la quebrada. Riesgo alto.";
-			case DRAIN_OVERFLOW -> "Buzón rebalsando con agua turbia. Riesgo medio de aniego.";
-			case CRACK -> "Grieta diagonal de unos 2 cm en muro de contención. Riesgo alto.";
-		};
-	}
-
-	static double severity(RiskCategory category) {
-		return switch (category) {
-			case ACEQUIA_OVERFLOW, CRACK -> 0.85;
-			case STREET_FLOODING -> 0.55;
-			case SEEPAGE, DRAIN_OVERFLOW -> 0.5;
-			case RAVINE_ACTIVITY -> 0.9;
-		};
 	}
 
 	// ---------------------------------------------------------------- mitigación (El Niño)

@@ -69,6 +69,7 @@ nearby:
     model: ${NEARBY_AI_MODEL:claude-haiku-5-5}
     api-key: ${ANTHROPIC_API_KEY:}
   storage:
+    provider: ${NEARBY_STORAGE_PROVIDER:local}
     local-dir: ${NEARBY_STORAGE_DIR:./uploads}
   cors:
     allowed-origin-patterns: ${NEARBY_CORS_ORIGINS:}

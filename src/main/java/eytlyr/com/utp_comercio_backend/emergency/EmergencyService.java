@@ -323,7 +323,7 @@ public class EmergencyService {
 				l.getUser().getId().equals(viewer.getId()), l.getCreatedAt());
 	}
 
-	static ResourceDto mitigationDto(ResourceListing l, AppUser viewer) {
+	public static ResourceDto mitigationDto(ResourceListing l, AppUser viewer) {
 		MitigationType t = l.getMitigationType();
 		return new ResourceDto(l.getId(), null, t, t != null ? t.label() : null, l.getKind(), l.getText(), l.getQuantity(),
 				l.getLocationText(), l.getUser().getName(), distance(viewer, l.getLat(), l.getLng()),

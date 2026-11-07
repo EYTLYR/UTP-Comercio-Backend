@@ -136,3 +136,27 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
    - El webhook `/api/v1/sms/inbound` es público, pero exige `X-Nearby-Token` (comparación en tiempo constante). Busca el código dentro del texto del SMS y siempre responde 200 si el token es válido.
    - Las letras de SOS (S, F, R, V, X) se registran como `INJURED`; Q (sismo) como `TRAPPED`.
    - `locationFromAddress` reconoce «Jr. Los Pinos 340» → `LP340` y «Mz. C lote 12» → `MC12`. Si no entiende la dirección, usa la calle más cercana con número 0.
+
+## Fase 10
+
+1. **El radar se recalcula en la misma transacción del reporte** (no después del commit). Así la respuesta puede traer `escalated` y la zona actualizada, que es el momento WOW de la demo. Si dos reportes llegan al mismo tiempo, el último recálculo deja todo consistente.
+2. **Categoría del reporte:**
+   - Se usa, en orden: la elegida por el vecino, la que propone la IA de la foto, la del texto (con el mismo clasificador del micrófono, modo PREVENTION) y, al final, `STREET_FLOODING`.
+   - Sin foto no hay `photoAnalysis`.
+3. **Ubicación del reporte:** se usan las coordenadas enviadas. Si no vienen, las de la calle reconocida en `addressText` (por ejemplo, «Jr. Los Pinos 330» → las de LP); si tampoco, las del vecino.
+4. **Las zonas de riesgo se identifican por la cercanía del centroide** (150 m). Las que se quedan sin grupo se desactivan.
+   - «escalated» es verdadero cuando una zona aparece directamente en RED o pasa de AMBER a RED.
+   - En ese caso se avisa a las viviendas a 300 m.
+5. **Nombre de la zona:** la dirección más repetida, sin número ni paréntesis (por ejemplo, «Quebrada Canto Grande (parte alta)» → «Quebrada Canto Grande»). Si no hay direcciones, la calle más cercana.
+6. **Mitigación sugerida:**
+   - Para cada necesidad del ANEXO B se toma la capacidad más cercana del inventario de la IA, que incluye `EVAC_TRANSPORT` para quebradas y grietas.
+   - Al recalcular se conserva el estado «coordinado» de cada persona.
+   - El texto de alerta usa al vecino más cercano y sus recursos en un orden fijo (por ejemplo, «sacos de arena y motobomba»).
+   - En quebradas, la alerta agrega «llama a Defensa Civil (115)».
+7. **Coordinar:**
+   - Se abre un chat sin contexto de publicación con el vecino que presta y se agrega el mensaje del sistema.
+   - Se marca «coordinado» y se avisa a las viviendas a 300 m (`notifiedHomes` no cuenta a quien coordina) y al vecino que presta.
+8. **Fotos:**
+   - Se aceptan JPG o PNG de hasta 5 MB y se guardan con `StorageService`. En dev, en `./uploads`, servidas públicamente en `/files/{uuid}.jpg` con nombres aleatorios; S3 queda preparado.
+   - `AnthropicPhotoRiskAnalyzer` (visión, SDK oficial, 8 s de tiempo máximo) tiene como respaldo el analizador de reglas PHOTO_AI.
+9. **El seeder ejecuta el radar al final**, así la demo arranca con la quebrada en rojo y Jr. Los Pinos en ámbar.
