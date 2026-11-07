@@ -194,7 +194,7 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 
 - **Por qué no Twilio:** la cuenta de prueba solo envía plantillas fijas (error 572006), así que no puede mandar el código de ingreso ni los avisos del SOS. Pasar a pago no era opción para el hackathon.
 - **Cómo:** un celular Android con chip peruano y la app SMS Gateway (modo nube) envía y recibe los SMS. Los vecinos ven un número local y los SMS los cubre el plan del chip.
-- **Microservicio aparte** (`micro/sms-gateway`, Node sin dependencias): es lo único que habla con sms-gate.app. El backend solo llama a `POST /v1/messages` con `X-Api-Key` (`GatewaySmsGateway`, `nearby.sms.provider=gateway`). Si mañana se cambia de proveedor, solo cambia el microservicio.
+- **Microservicio aparte** (`micro/sms-gateway`, Node sin dependencias): es lo único que habla con sms-gate.app. El backend solo llama a `POST /v1/messages` con `X-Api-Key` (`HttpSmsGateway`, `nearby.sms.provider=http`; `gateway` sigue funcionando). Si mañana se cambia de proveedor, solo cambia el microservicio.
 - **Entrante:** el microservicio valida la firma del webhook de sms-gate (HMAC-SHA256) y reenvía el SMS al endpoint que ya existía, `/api/v1/sms/inbound` con `X-Nearby-Token`. El backend no necesita saber de dónde viene.
 - **Fallas:** si el código de ingreso no sale y no hay código fijo, `422 SMS_SEND_FAILED`. Los avisos del SOS que fallan solo quedan en el log: el SOS nunca falla por el proveedor.
 - **160 caracteres:** el SMS del SOS usa coordenadas con 5 decimales para entrar en un solo mensaje.
@@ -217,3 +217,11 @@ Detalle y código en [POSTGIS.md](POSTGIS.md).
 - **SOS cercanos:** `GET /sos/nearby` (lo consulta cada app cada 20 s) también pasó a `ST_DWithin` sobre `sos_alert.location`, en lugar de traer todos los SOS activos de la zona y medir en Java.
 - **Pruebas sin zonky:** los binarios de zonky no traen PostGIS. Con Docker se usa `postgis/postgis:18-3.6-alpine`; sin Docker, `LocalPostgis` crea un clúster temporal (initdb + pg_ctl) con la instalación local que tenga PostGIS.
 - **Neon:** PostgreSQL 18.6 con PostGIS 3.6.4 disponible; la migración V4 lo habilita con `CREATE EXTENSION`. Las versiones anteriores del backend siguen funcionando contra la base migrada (solo se agregan columnas).
+
+## Gemini y SMS por HTTP con reintentos
+
+Detalle en [IA_GEMINI_Y_SMS.md](IA_GEMINI_Y_SMS.md).
+
+- **Gemini como tercer proveedor de IA** (`nearby.ai.provider=gemini`), al lado de `rules` y `anthropic`. Cubre la foto de riesgo y el micrófono. Llama a la API REST con `RestClient` (sin SDK) y pide JSON. Si falla, tarda más de 8 s o el circuit breaker está abierto (3 fallas seguidas → 60 s sin llamar), responden las reglas: nunca un 500. El índice de capacidades y el plan de rescate siguen con reglas cuando el proveedor es `gemini`.
+- **El micrófono valida lo que responde Gemini:** solo acepta tipos y categorías que la app conoce para el modo de la zona; si no, usa las reglas.
+- **`HttpSmsGateway`** reemplaza a `GatewaySmsGateway`: `RestClient`, 2 reintentos ante errores de red, 5xx o 429 (un 4xx no se reintenta) y un log `CRÍTICO` si no sale. `nearby.sms.provider=http`; se acepta `gateway` para no romper los `.env` del equipo. El SOS no se ve afectado: los SMS salen después del commit y en segundo plano (`DispatchListener`).

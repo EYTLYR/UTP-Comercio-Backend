@@ -144,11 +144,11 @@ Hay un archivo `.http` por módulo en [requests/](requests/): auth, perfil, serv
 
 | Integración | En dev (por defecto) | Real |
 |---|---|---|
-| SMS (OTP y avisos) | `ConsoleSmsGateway`: escribe en el log, con el celular enmascarado | `NEARBY_SMS_PROVIDER=gateway`: microservicio SMS (celular Android con SMS Gateway), ver abajo |
+| SMS (OTP y avisos) | `ConsoleSmsGateway`: escribe en el log, con el celular enmascarado | `NEARBY_SMS_PROVIDER=http` (o `gateway`): microservicio SMS (celular Android con SMS Gateway) con 2 reintentos, ver abajo |
 | SMS entrante (SOS sin internet) | `POST /api/v1/sms/inbound` con `X-Nearby-Token` | El microservicio SMS reenvía cada SMS recibido a ese mismo endpoint |
 | Push | `LoggingNotificationService`: escribe en el log | `NEARBY_NOTIFICATIONS_PROVIDER=fcm` (preparado en `FcmNotificationService`) |
-| IA de texto (inventario) | Reglas del ANEXO B | `NEARBY_AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` (Claude `claude-haiku-5-5`, con respaldo de reglas) |
-| IA de visión (fotos El Niño) | Texto PHOTO_AI según la categoría | Lo mismo que la IA de texto: Claude con visión y respaldo de reglas |
+| IA de texto (inventario) | Reglas del ANEXO B | `NEARBY_AI_PROVIDER=anthropic` + `ANTHROPIC_API_KEY` (Claude `claude-haiku-5-5`, con respaldo de reglas). El micrófono también puede usar Gemini (ver la fila de visión) |
+| IA de visión (fotos El Niño) | Texto PHOTO_AI según la categoría | Claude con visión, o `NEARBY_AI_PROVIDER=gemini` + `GEMINI_API_KEY` (`gemini-2.5-flash` para la foto y el micrófono, con circuit breaker y respaldo de reglas; ver [docs/IA_GEMINI_Y_SMS.md](docs/IA_GEMINI_Y_SMS.md)) |
 | Fotos | Neon Object Storage (S3, bucket privado `nearby`, carpeta `risk-photos/`), servidas por la API en `/files/...` | Igual; sirve cualquier S3 (AWS, R2, MinIO) cambiando `AWS_ENDPOINT_URL_S3` |
 | Aviso meteorológico | Lo ingresa la Municipalidad en `/admin/zones/{id}/mode` | Leerlo de una fuente oficial (SENAMHI) |
 
@@ -173,11 +173,12 @@ Si el SMS del código de ingreso falla y hay código fijo (`NEARBY_OTP_DEV_CODE`
 |---|---|---|
 | `NEARBY_JWT_SECRET` | Secreto HS256 (32 caracteres o más) | Valor de desarrollo |
 | `NEARBY_SMS_INBOUND_TOKEN` | Token del webhook `/api/v1/sms/inbound` | `dev-sms-token` |
-| `NEARBY_SMS_GATEWAY_URL`, `NEARBY_SMS_GATEWAY_API_KEY` | Microservicio SMS (con `NEARBY_SMS_PROVIDER=gateway`) | `http://localhost:3000` / — |
-| `NEARBY_SMS_PROVIDER` / `NEARBY_NOTIFICATIONS_PROVIDER` | Proveedores reales (`gateway` para SMS) | `console` / `log` |
+| `NEARBY_SMS_GATEWAY_URL`, `NEARBY_SMS_GATEWAY_API_KEY` | Microservicio SMS (con `NEARBY_SMS_PROVIDER=http` o `gateway`) | `http://localhost:3000` / — |
+| `NEARBY_SMS_PROVIDER` / `NEARBY_NOTIFICATIONS_PROVIDER` | Proveedores reales (`http` para SMS) | `console` / `log` |
 | `NEARBY_STORAGE_PROVIDER`, `NEARBY_S3_BUCKET`, `NEARBY_S3_PREFIX` | Fotos en S3 | `s3` / — / `risk-photos/` |
 | `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` | Credenciales S3 (Neon) | — / — / — / `us-east-2` |
-| `NEARBY_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `NEARBY_AI_MODEL` | IA con Claude | `rules` / — / `claude-haiku-5-5` |
+| `NEARBY_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `NEARBY_AI_MODEL` | IA con Claude (`anthropic`) | `rules` / — / `claude-haiku-5-5` |
+| `GEMINI_API_KEY`, `NEARBY_GEMINI_MODEL`, `NEARBY_GEMINI_TIMEOUT_SECONDS` | IA con Gemini (`NEARBY_AI_PROVIDER=gemini`) | — / `gemini-2.5-flash` / `8` |
 | `NEARBY_CORS_ORIGINS` | Orígenes CORS (patrones separados por coma) | `http://localhost:*` |
 | `NEARBY_ADMIN_PHONES`, `NEARBY_BRIGADE_PHONES` | Celulares (separados por coma) que entran como Municipalidad (ADMIN) o brigada (BRIGADIST) | — |
 | `NEARBY_OTP_DEV_CODE` | Código SMS fijo (solo para una demo sin SMS) | — (aleatorio) |

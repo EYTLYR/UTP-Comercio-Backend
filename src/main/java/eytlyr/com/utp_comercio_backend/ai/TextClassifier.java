@@ -131,7 +131,7 @@ public class TextClassifier {
 		return result(type, null, category.name(), category.label(), "MEDIUM", location);
 	}
 
-	private static ClassifyResult result(String type, String kind, String category, String label, String priority,
+	static ClassifyResult result(String type, String kind, String category, String label, String priority,
 			String location) {
 		List<String> chips = new ArrayList<>();
 		if (label != null) {

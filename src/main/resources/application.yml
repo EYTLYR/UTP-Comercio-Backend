@@ -68,6 +68,7 @@ nearby:
   notifications:
     provider: ${NEARBY_NOTIFICATIONS_PROVIDER:log}
   sms:
+    # console = solo log; http (o gateway) = microservicio SMS por HTTP con 2 reintentos (HttpSmsGateway).
     provider: ${NEARBY_SMS_PROVIDER:console}
     inbound-token: ${NEARBY_SMS_INBOUND_TOKEN:}
     gateway:
@@ -84,6 +85,11 @@ nearby:
     provider: ${NEARBY_AI_PROVIDER:rules}
     model: ${NEARBY_AI_MODEL:claude-haiku-5-5}
     api-key: ${ANTHROPIC_API_KEY:}
+    # NEARBY_AI_PROVIDER=gemini: foto de riesgo y micrófono con Gemini (fallback a reglas si falla).
+    gemini:
+      api-key: ${GEMINI_API_KEY:}
+      model: ${NEARBY_GEMINI_MODEL:gemini-2.5-flash}
+      timeout-seconds: ${NEARBY_GEMINI_TIMEOUT_SECONDS:8}
   storage:
     provider: ${NEARBY_STORAGE_PROVIDER:s3}
     bucket: ${NEARBY_S3_BUCKET:}

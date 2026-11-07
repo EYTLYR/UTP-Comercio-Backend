@@ -66,7 +66,8 @@ public record NearbyProperties(
 	}
 
 	/**
-	 * provider: "console" (log, por defecto) o "gateway" (microservicio SMS, ver micro/sms-gateway).
+	 * provider: "console" (log, por defecto) o "http" (microservicio SMS por HTTP, ver micro/sms-gateway;
+	 * "gateway" es el nombre anterior y sigue funcionando).
 	 * inboundToken protege /api/v1/sms/inbound, donde el microservicio reenvía los SMS recibidos.
 	 */
 	public record Sms(@DefaultValue("console") String provider, String inboundToken, @DefaultValue Gateway gateway) {
@@ -89,7 +90,7 @@ public record NearbyProperties(
 	}
 
 	/**
-	 * Proveedor de IA de texto: "rules" (sin credenciales) o "anthropic".
+	 * Proveedor de IA: "rules" (sin credenciales), "anthropic" o "gemini" (foto de riesgo y micrófono).
 	 * indexOnEvents: indexar cada contenido nuevo en segundo plano.
 	 * autoRescuePlan: generar el plan de rescate al pasar la zona a EMERGENCY.
 	 */
@@ -98,10 +99,24 @@ public record NearbyProperties(
 			@DefaultValue("claude-haiku-5-5") String model,
 			String apiKey,
 			@DefaultValue("true") boolean indexOnEvents,
-			@DefaultValue("true") boolean autoRescuePlan) {
+			@DefaultValue("true") boolean autoRescuePlan,
+			@DefaultValue Gemini gemini) {
 
 		public boolean isAnthropic() {
 			return "anthropic".equalsIgnoreCase(provider) && apiKey != null && !apiKey.isBlank();
+		}
+
+		/**
+		 * API REST de Gemini (nearby.ai.provider=gemini). timeoutSeconds: después de eso se usa el analizador de
+		 * reglas. failureThreshold y cooldownSeconds: tras ese número de fallas seguidas, se deja de llamar a
+		 * Gemini durante cooldownSeconds (circuit breaker).
+		 */
+		public record Gemini(String apiKey,
+				@DefaultValue("gemini-2.5-flash") String model,
+				@DefaultValue("https://generativelanguage.googleapis.com") String baseUrl,
+				@DefaultValue("8") int timeoutSeconds,
+				@DefaultValue("3") int failureThreshold,
+				@DefaultValue("60") int cooldownSeconds) {
 		}
 	}
 
