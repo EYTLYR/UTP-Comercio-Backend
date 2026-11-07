@@ -1,0 +1,18 @@
+### FASE 1 · Base del proyecto
+@base = http://localhost:8080
+
+### Salud (público) -> {"status":"UP"}
+GET {{base}}/actuator/health
+
+### OpenAPI (público) -> info.title = "Nearby API"
+GET {{base}}/v3/api-docs
+
+### Cualquier otra ruta de la API pide token -> 401 con code UNAUTHORIZED
+GET {{base}}/api/v1/me
+
+### Token inválido -> 401
+GET {{base}}/api/v1/me
+Authorization: Bearer no-es-un-jwt
+
+### /api/v1/auth/** es público (todavía no existe: 404 con code NOT_FOUND, no 401)
+GET {{base}}/api/v1/auth/ping

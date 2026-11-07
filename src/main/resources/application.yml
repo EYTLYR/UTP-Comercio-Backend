@@ -1,0 +1,116 @@
+# Configuración común. Los perfiles están más abajo:
+#   dev   (por defecto) PostgreSQL con Docker Compose Support (compose.yaml).
+#   local dev sin Docker: PostgreSQL ya instalado o el repo UTP-Comercio-Data-Base.
+#   prod  todo por variables de entorno.
+spring:
+  application:
+    name: utp-comercio-backend
+  profiles:
+    default: dev
+    group:
+      local: dev
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  jackson:
+    time-zone: America/Lima
+  flyway:
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 8MB
+      max-request-size: 10MB
+
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: always
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+nearby:
+  jwt-secret: ${NEARBY_JWT_SECRET}
+  access-token-minutes: 60
+  refresh-token-days: 30
+  otp:
+    length: 6
+    expiry-minutes: 5
+    max-attempts: 5
+    max-requests-per-hour: 5
+  sms:
+    inbound-token: ${NEARBY_SMS_INBOUND_TOKEN:}
+  emergency:
+    auto-activate-sos-count: 5
+    auto-activate-window-minutes: 10
+  prevention:
+    cluster-radius-m: 150
+    cluster-window-hours: 6
+  ai:
+    provider: ${NEARBY_AI_PROVIDER:rules}
+    model: ${NEARBY_AI_MODEL:claude-haiku-5-5}
+    api-key: ${ANTHROPIC_API_KEY:}
+  storage:
+    local-dir: ${NEARBY_STORAGE_DIR:./uploads}
+  cors:
+    allowed-origin-patterns: ${NEARBY_CORS_ORIGINS:}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+nearby:
+  jwt-secret: ${NEARBY_JWT_SECRET:dev-only-nearby-secret-0123456789-abcdef}
+  otp:
+    dev-fixed-code: "123456"
+  sms:
+    inbound-token: ${NEARBY_SMS_INBOUND_TOKEN:dev-sms-token}
+  cors:
+    allowed-origin-patterns: http://localhost:*,http://127.0.0.1:*
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  docker:
+    compose:
+      enabled: false
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5435/utp_comercio_db}
+    username: ${DB_USER:utp_comercio_user}
+    password: ${DB_PASSWORD:}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  docker:
+    compose:
+      enabled: false
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+springdoc:
+  swagger-ui:
+    enabled: ${NEARBY_SWAGGER_ENABLED:false}
+  api-docs:
+    enabled: ${NEARBY_SWAGGER_ENABLED:false}

@@ -1,9 +1,24 @@
+# PostgreSQL para desarrollo. Spring Boot Docker Compose Support lo levanta solo
+# al ejecutar ./mvnw spring-boot:run (perfil dev) y le pasa la conexión a la app.
 services:
   postgres:
-    image: 'postgres:latest'
+    image: 'postgres:16-alpine'
     environment:
-      - 'POSTGRES_DB=mydatabase'
-      - 'POSTGRES_PASSWORD=secret'
-      - 'POSTGRES_USER=myuser'
+      - 'POSTGRES_DB=nearby'
+      - 'POSTGRES_USER=nearby'
+      - 'POSTGRES_PASSWORD=nearby'
+      - 'TZ=America/Lima'
     ports:
+      # Puerto del host aleatorio para no chocar con un PostgreSQL local en 5432.
+      # Spring Boot detecta el puerto asignado. Para fijarlo usa '5432:5432'.
       - '5432'
+    volumes:
+      - 'nearby-data:/var/lib/postgresql/data'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nearby -d nearby']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  nearby-data:
