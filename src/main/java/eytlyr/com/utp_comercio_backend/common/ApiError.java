@@ -52,6 +52,13 @@ public class ApiError extends ResponseEntityExceptionHandler {
 		return validation(errors);
 	}
 
+	/** Restricción única violada por dos peticiones simultáneas (la verificación previa no alcanzó). */
+	@ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+	ProblemDetail handleDataIntegrity(org.springframework.dao.DataIntegrityViolationException ex) {
+		log.warn("Restricción de datos: {}", ex.getMostSpecificCause().getMessage());
+		return problem(HttpStatus.CONFLICT, "Conflicto", "Ese registro ya existe.", "CONFLICT");
+	}
+
 	@ExceptionHandler(Exception.class)
 	ProblemDetail handleUnexpected(Exception ex) {
 		log.error("Error inesperado", ex);

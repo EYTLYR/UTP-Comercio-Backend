@@ -1,0 +1,37 @@
+### FASE 5 · Servicios y Visto Bueno Vecinal (ingresa primero con requests/auth.http)
+@base = http://localhost:8080
+@token = pega-aqui-el-accessToken
+
+### Buscar sin tildes ("gasfitero" encuentra Gasfitería)
+GET {{base}}/api/v1/services?q=gasfitero
+Authorization: Bearer {{token}}
+
+### Más cercanos primero / solo disponibles en emergencia
+GET {{base}}/api/v1/services?sort=distance&emergencyOnly=true
+Authorization: Bearer {{token}}
+
+### Detalle (reemplaza el id)
+GET {{base}}/api/v1/services/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+
+### Visto Bueno (403 no verificado / otra zona, 422 propio, 409 repetido)
+POST {{base}}/api/v1/services/00000000-0000-0000-0000-000000000000/endorsements
+Authorization: Bearer {{token}}
+
+### Reseña
+POST {{base}}/api/v1/services/00000000-0000-0000-0000-000000000000/reviews
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "text": "Muy puntual y cobró lo justo." }
+
+### Botón Mensaje -> { conversationId }
+POST {{base}}/api/v1/services/00000000-0000-0000-0000-000000000000/contact
+Authorization: Bearer {{token}}
+
+### Ofrecer mi oficio
+POST {{base}}/api/v1/services
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "title": "Primeros auxilios a domicilio", "category": "OTHER", "description": "Curso de la brigada", "priceText": "Gratis", "scheduleText": "Tardes", "availableInEmergency": true }

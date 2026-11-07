@@ -56,3 +56,14 @@ Este archivo anota en qué se aparta el código de los prompts de [BACKEND_PROMP
 6. **`PUT /me/device-token`:** un token pertenece a un solo teléfono. Si ya estaba registrado con otra cuenta, pasa a la cuenta actual.
 7. **`GET /me/prep-checklist`** siempre devuelve los 4 ítems en orden. `PUT` actualiza solo los ítems enviados.
 8. **`CapabilityTag`** tiene `label()` con el nombre en español.
+
+## Fase 5
+
+1. **La búsqueda de servicios** se hace en memoria, dentro de la zona del usuario: una zona tiene decenas de oficios, no miles.
+   - `TextUtils.matches` compara sin tildes y por raíz, quitando sufijos como -ero, -ería o -ia. Así «gasfitero» encuentra «Gasfitería» sin necesitar `unaccent` en PostgreSQL.
+   - Si algún día hay miles de oficios, conviene pasarla a SQL con `unaccent` y `pg_trgm`.
+2. **`ServiceCategory`** tiene `label()` en español.
+3. **Orden de las reglas del Visto Bueno:** no verificado (403), su propio servicio (422), otra zona (403) y repetido (409). Si dos peticiones llegan a la vez, la restricción única responde 409 (`CONFLICT`). Si `@Version` detecta un conflicto, el controlador reintenta una vez.
+4. **`DELETE /services/{id}`** es un borrado lógico (`active=false`). Nadie puede reseñar su propio servicio (422 `REVIEW_SELF`).
+5. **`POST /services`** exige que el usuario haya guardado su ubicación (422 `LOCATION_REQUIRED`) y usa esas coordenadas.
+6. **`ChatService.getOrCreate`** está adelantado de la fase 6, para el botón «Mensaje»: crea una conversación por par de vecinos y por contexto (servicio o publicación).
