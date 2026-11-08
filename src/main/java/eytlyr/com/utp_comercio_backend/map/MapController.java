@@ -31,7 +31,7 @@ public class MapController {
 	@GetMapping("/api/v1/map/pins")
 	@Operation(summary = "Pines del mapa: layer=daily|emergency|prevention")
 	public List<Pin> pins(@RequestParam(defaultValue = "daily") String layer,
-			@RequestParam(defaultValue = "1500") int radiusM,
+			@RequestParam(defaultValue = "5000") int radiusM,
 			@RequestParam(required = false) java.util.UUID zoneId) {
 		Layer l;
 		try {

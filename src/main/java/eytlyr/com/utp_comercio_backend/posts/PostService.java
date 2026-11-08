@@ -2,7 +2,9 @@ package eytlyr.com.utp_comercio_backend.posts;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -106,23 +108,27 @@ public class PostService {
 			int size) {
 		AppUser me = user(userId);
 		Set<UUID> responded = responses.postIdsRespondedBy(userId);
-		List<Post> source;
-		if (me.getLat() != null && me.getLng() != null) {
-			// Vecinos cercanos aunque estén en la zona de al lado.
-			double[] b = GeoUtils.box(me.getLat(), me.getLng(), radiusM);
-			source = posts.findNear(b[0], b[1], b[2], b[3], VISIBLE);
+		int effectiveRadius = Math.max(radiusM, me.getZone() != null ? Math.max(me.getZone().getRadiusM(), 5000) : 5000);
+		Set<Post> sourceSet = new LinkedHashSet<>();
+		if (me.getZone() != null) {
+			sourceSet.addAll(posts.findInZone(me.getZone().getId(), VISIBLE));
 		}
-		else if (me.getZone() != null) {
-			source = posts.findInZone(me.getZone().getId(), VISIBLE);
+		Double refLat = me.getLat() != null ? me.getLat() : (me.getZone() != null ? me.getZone().getCenterLat() : null);
+		Double refLng = me.getLng() != null ? me.getLng() : (me.getZone() != null ? me.getZone().getCenterLng() : null);
+		if (refLat != null && refLng != null) {
+			double[] b = GeoUtils.box(refLat, refLng, effectiveRadius);
+			sourceSet.addAll(posts.findNear(b[0], b[1], b[2], b[3], VISIBLE));
 		}
-		else {
+		else if (sourceSet.isEmpty()) {
 			return new PageResponse<>(List.of(), page, size, 0, 0);
 		}
-		List<PostDto> all = source.stream()
+		List<PostDto> all = sourceSet.stream()
 				.filter(p -> type == null || p.getType() == type)
 				.filter(p -> category == null || p.getCategory() == category)
 				.map(p -> withResponses(toDto(p, me, responded)))
-				.filter(p -> p.distanceM() == null || p.distanceM() <= radiusM)
+				.filter(p -> p.distanceM() == null || p.distanceM() <= effectiveRadius
+						|| (me.getZone() != null && p.authorZoneName() != null && me.getZone().getName().equals(p.authorZoneName())))
+				.sorted(Comparator.comparing(PostDto::createdAt).reversed())
 				.toList();
 		int s = Math.max(1, Math.min(size, 50));
 		int pg = Math.max(0, page);

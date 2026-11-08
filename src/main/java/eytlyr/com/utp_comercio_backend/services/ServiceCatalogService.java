@@ -1,6 +1,7 @@
 package eytlyr.com.utp_comercio_backend.services;
 
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -74,25 +75,34 @@ public class ServiceCatalogService {
 		boolean hasRef = refLat != null && refLng != null;
 		Set<UUID> mine = endorsements.serviceIdsEndorsedBy(userId);
 
-		List<NeighborService> candidates;
-		if (hasRef) {
-			double[] b = GeoUtils.box(refLat, refLng, query.radiusM());
-			candidates = services.findActiveNear(b[0], b[1], b[2], b[3]);
+		int effectiveRadius = Math.max(query.radiusM(), 5000);
+		Set<NeighborService> candidateSet = new LinkedHashSet<>();
+		if (me.getZone() != null) {
+			candidateSet.addAll(services.findActiveInZone(me.getZone().getId()));
 		}
-		else {
-			candidates = me.getZone() != null ? services.findActiveInZone(me.getZone().getId())
-					: services.findAllActive();
+		if (hasRef) {
+			double[] b = GeoUtils.box(refLat, refLng, effectiveRadius);
+			candidateSet.addAll(services.findActiveNear(b[0], b[1], b[2], b[3]));
+		}
+		else if (me.getZone() == null) {
+			candidateSet.addAll(services.findAllActive());
 		}
 
-		List<ServiceSummaryDto> all = candidates.stream()
+		List<ServiceSummaryDto> all = candidateSet.stream()
 				.filter(s -> query.category() == null || s.getCategory() == query.category())
 				.filter(s -> !query.emergencyOnly() || s.isAvailableInEmergency())
 				.filter(s -> TextUtils.matches(query.q(), s.getTitle(), s.getDescription(), s.getOwner().getName(),
 						s.getCategory().label()))
+				.filter(s -> {
+					if (!hasRef) return true;
+					int d = distance(refLat, refLng, s);
+					if (d <= effectiveRadius) return true;
+					return me.getZone() != null && s.getOwner().getZone() != null
+							&& me.getZone().getId().equals(s.getOwner().getZone().getId());
+				})
 				.map(s -> summary(s, hasRef ? distance(refLat, refLng, s) : null, mine.contains(s.getId())))
-				.filter(s -> s.distanceM() == null || s.distanceM() <= query.radiusM())
 				.sorted("distance".equals(query.sort()) && hasRef
-						? Comparator.comparing(ServiceSummaryDto::distanceM)
+						? Comparator.comparing(s -> s.distanceM() != null ? s.distanceM() : Integer.MAX_VALUE)
 						: Comparator.comparing(ServiceSummaryDto::endorsementCount).reversed())
 				.toList();
 

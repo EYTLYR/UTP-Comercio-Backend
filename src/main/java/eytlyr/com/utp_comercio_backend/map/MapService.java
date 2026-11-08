@@ -4,7 +4,9 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -93,7 +95,8 @@ public class MapService {
 		if (zone == null) {
 			return List.of();
 		}
-		return pinsAround(me, zone, layer, radiusM);
+		int effectiveRadius = Math.max(radiusM, Math.max(zone.getRadiusM(), 5000));
+		return pinsAround(me, zone, layer, effectiveRadius);
 	}
 
 	/** Pines alrededor de un punto (mi casa o el centro de la zona que estoy mirando). */
@@ -101,7 +104,8 @@ public class MapService {
 	public List<Pin> pinsInZone(UUID userId, UUID zoneId, Layer layer, int radiusM) {
 		AppUser me = users.findById(userId).orElseThrow(() -> NotFoundException.of("el usuario"));
 		Zone zone = zones.findById(zoneId).orElseThrow(() -> NotFoundException.of("la zona"));
-		List<Pin> pins = pinsAround(me, zone, layer, Math.max(radiusM, zone.getRadiusM()), zone.getCenterLat(),
+		int effectiveRadius = Math.max(radiusM, Math.max(zone.getRadiusM(), 5000));
+		List<Pin> pins = pinsAround(me, zone, layer, effectiveRadius, zone.getCenterLat(),
 				zone.getCenterLng());
 		if (me.getZone() != null && me.getZone().getId().equals(zoneId)) {
 			return pins;
@@ -118,17 +122,30 @@ public class MapService {
 
 	private List<Pin> pinsAround(AppUser me, Zone zone, Layer layer, int radiusM, double refLat, double refLng) {
 		UUID zoneId = zone.getId();
-		double[] box = GeoUtils.box(refLat, refLng, radiusM);
-		List<Pin> pins = new ArrayList<>();
+		int effectiveRadius = Math.max(radiusM, Math.max(zone.getRadiusM(), 5000));
+		double[] box = GeoUtils.box(refLat, refLng, effectiveRadius);
+		Map<UUID, Pin> pinMap = new LinkedHashMap<>();
 		switch (layer) {
 			case DAILY -> {
-				services.findActiveNear(box[0], box[1], box[2], box[3]).forEach(s -> pins.add(new Pin(s.getId(), "svc",
+				services.findActiveInZone(zoneId).forEach(s -> pinMap.put(s.getId(), new Pin(s.getId(), "svc",
 						s.getLat(), s.getLng(), serviceIcon(s.getCategory().name()),
 						s.getOwner().getName() + " · " + s.getTitle(),
 						s.getCategory().label() + " · " + s.getEndorsementCount() + " vistos buenos", "service",
 						s.getId())));
-				posts.findNear(box[0], box[1], box[2], box[3], EnumSet.of(PostStatus.OPEN)).forEach(p -> pins.add(
-						new Pin(p.getId(), p.getType() == PostType.NEED ? "need" : "offer", p.getLat(), p.getLng(),
+				services.findActiveNear(box[0], box[1], box[2], box[3]).forEach(s -> pinMap.putIfAbsent(s.getId(), new Pin(s.getId(), "svc",
+						s.getLat(), s.getLng(), serviceIcon(s.getCategory().name()),
+						s.getOwner().getName() + " · " + s.getTitle(),
+						s.getCategory().label() + " · " + s.getEndorsementCount() + " vistos buenos", "service",
+						s.getId())));
+				posts.findInZone(zoneId, EnumSet.of(PostStatus.OPEN, PostStatus.MATCHED)).forEach(p -> pinMap.put(
+						p.getId(), new Pin(p.getId(), p.getType() == PostType.NEED ? "need" : "offer", p.getLat(), p.getLng(),
+								p.getType() == PostType.NEED ? "front_hand" : "volunteer_activism",
+								p.getAuthor().getName() + (p.getType() == PostType.NEED ? " necesita ayuda" : " ofrece ayuda"),
+								p.getCategory().label() + (p.getText() != null && !p.getText().isBlank()
+										? ": " + p.getText() : ""),
+								"post", p.getId())));
+				posts.findNear(box[0], box[1], box[2], box[3], EnumSet.of(PostStatus.OPEN, PostStatus.MATCHED)).forEach(p -> pinMap.putIfAbsent(
+						p.getId(), new Pin(p.getId(), p.getType() == PostType.NEED ? "need" : "offer", p.getLat(), p.getLng(),
 								p.getType() == PostType.NEED ? "front_hand" : "volunteer_activism",
 								p.getAuthor().getName() + (p.getType() == PostType.NEED ? " necesita ayuda" : " ofrece ayuda"),
 								p.getCategory().label() + (p.getText() != null && !p.getText().isBlank()
@@ -138,44 +155,46 @@ public class MapService {
 			case EMERGENCY -> {
 				boolean exact = EmergencyService.isBrigade(me);
 				reports.findInZone(zoneId, EnumSet.of(ReportStatus.PENDING, ReportStatus.ON_THE_WAY))
-						.forEach(r -> pins.add(new Pin(r.getId(), "vuln", exact ? r.getLat() : GeoUtils.approx(r.getLat()),
+						.forEach(r -> pinMap.put(r.getId(), new Pin(r.getId(), "vuln", exact ? r.getLat() : GeoUtils.approx(r.getLat()),
 								exact ? r.getLng() : GeoUtils.approx(r.getLng()), vulnerableIcon(r.getCategory().name()),
 								r.getCategory().label(), r.getPriority().name().equals("HIGH") ? "Prioridad alta"
 										: "Prioridad media", "vulnerable_report", r.getId())));
-				addSafePoints(pins, zoneId);
+				addSafePoints(pinMap, zoneId);
 				listings.findActiveInZone(zoneId).stream()
 						.filter(l -> l.getResourceType() != null && l.getKind() == ListingKind.HAVE)
-						.forEach(l -> pins.add(new Pin(l.getId(), "res", l.getLat(), l.getLng(),
+						.forEach(l -> pinMap.put(l.getId(), new Pin(l.getId(), "res", l.getLat(), l.getLng(),
 								resourceIcon(l.getResourceType().name()), l.getResourceType().label(), l.getText(),
 								"resource", l.getId())));
-				groups.findByZoneIdOrderByName(zoneId).forEach(g -> pins.add(new Pin(g.getId(), "group",
+				groups.findByZoneIdOrderByName(zoneId).forEach(g -> pinMap.put(g.getId(), new Pin(g.getId(), "group",
 						zone.getCenterLat(), zone.getCenterLng(), g.getIcon(), g.getName(),
 						g.getMembersCount() + " miembros", "support_group", g.getId())));
 			}
 			case PREVENTION -> {
-				risks.findRecentInZone(zoneId, OffsetDateTime.now(clock).minusHours(24)).forEach(r -> pins.add(new Pin(
-						r.getId(), "risk", r.getLat(), r.getLng(), riskIcon(r.getCategory().name()),
+				risks.findRecentInZone(zoneId, OffsetDateTime.now(clock).minusHours(24)).forEach(r -> pinMap.put(
+						r.getId(), new Pin(r.getId(), "risk", r.getLat(), r.getLng(), riskIcon(r.getCategory().name()),
 						r.getCategory().label(), r.getAddressText(), "risk_report", r.getId())));
-				capabilities.findByZoneIdAndTagInAndRemovedByUserFalse(zoneId, MITIGATION_TAGS).forEach(c -> pins.add(
-						new Pin(c.getId(), "mitig", c.getLat(), c.getLng(), mitigationIcon(c.getTag().name()),
+				capabilities.findByZoneIdAndTagInAndRemovedByUserFalse(zoneId, MITIGATION_TAGS).forEach(c -> pinMap.put(
+						c.getId(), new Pin(c.getId(), "mitig", c.getLat(), c.getLng(), mitigationIcon(c.getTag().name()),
 								c.getTag().label(), c.getDisplayName(), "capability", c.getId())));
 				listings.findActiveInZone(zoneId).stream()
 						.filter(l -> l.getMitigationType() != null && l.getKind() == ListingKind.HAVE)
-						.forEach(l -> pins.add(new Pin(l.getId(), "mitig", l.getLat(), l.getLng(),
+						.forEach(l -> pinMap.put(l.getId(), new Pin(l.getId(), "mitig", l.getLat(), l.getLng(),
 								mitigationIcon(l.getMitigationType().name()), l.getMitigationType().label(), l.getText(),
 								"resource", l.getId())));
-				addSafePoints(pins, zoneId);
+				addSafePoints(pinMap, zoneId);
 			}
 		}
-		return pins.stream()
-				.filter(p -> GeoUtils.haversineMeters(refLat, refLng, p.lat(), p.lng()) <= radiusM)
+		return pinMap.values().stream()
+				.filter(p -> p.lat() == null || p.lng() == null || GeoUtils.haversineMeters(refLat, refLng, p.lat(), p.lng()) <= effectiveRadius)
 				.toList();
 	}
 
-	private void addSafePoints(List<Pin> pins, UUID zoneId) {
-		safePoints.findByZoneIdOrderByName(zoneId).forEach(p -> pins.add(new Pin(p.getId(), "safe", p.getLat(), p.getLng(),
+	private void addSafePoints(Map<UUID, Pin> pinMap, UUID zoneId) {
+		safePoints.findByZoneIdOrderByName(zoneId).forEach(p -> pinMap.put(p.getId(), new Pin(p.getId(), "safe", p.getLat(), p.getLng(),
 				p.getType() == SafePointType.SHELTER ? "night_shelter" : "flag", p.getName(),
 				p.getCapacity() != null ? p.getOccupied() + " de " + p.getCapacity() + " cupos" : "Punto de reunión",
+				"safe_point", p.getId())));
+	}
 				"safe_point", p.getId())));
 	}
 

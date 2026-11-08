@@ -54,7 +54,7 @@ public class ServiceController {
 	@Operation(summary = "Buscar oficios cercanos (q sin tildes; sort=endorsements|distance)")
 	public PageResponse<ServiceSummaryDto> search(@RequestParam(required = false) ServiceCategory category,
 			@RequestParam(required = false) String q, @RequestParam(required = false) Double lat,
-			@RequestParam(required = false) Double lng, @RequestParam(defaultValue = "2000") int radiusM,
+			@RequestParam(required = false) Double lng, @RequestParam(defaultValue = "5000") int radiusM,
 			@RequestParam(defaultValue = "false") boolean emergencyOnly,
 			@RequestParam(defaultValue = "endorsements") String sort, @RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "20") int size) {
