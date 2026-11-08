@@ -16,4 +16,27 @@ public interface ResourceListingRepository extends JpaRepository<ResourceListing
 			""")
 	List<ResourceListing> findActiveInZone(@Param("zoneId") UUID zoneId);
 
+	/**
+	 * Encuentra los 3 proveedores más cercanos de un recurso específico con PostGIS ST_Distance.
+	 */
+	@Query(value = """
+			SELECT l.* FROM resource_listing l
+			WHERE l.kind = 'HAVE'
+			  AND l.active = true
+			  AND l.user_id != :requesterId
+			  AND (cast(:resourceType as varchar) IS NULL OR l.resource_type = cast(:resourceType as varchar))
+			  AND (cast(:mitigationType as varchar) IS NULL OR l.mitigation_type = cast(:mitigationType as varchar))
+			ORDER BY ST_Distance(
+			    ST_SetSRID(ST_MakePoint(l.lng, l.lat), 4326)::geography,
+			    ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography
+			) ASC
+			LIMIT 3
+			""", nativeQuery = true)
+	List<ResourceListing> findTop3ClosestProviders(
+			@Param("requesterId") UUID requesterId,
+			@Param("resourceType") String resourceType,
+			@Param("mitigationType") String mitigationType,
+			@Param("lat") double lat,
+			@Param("lng") double lng);
+
 }

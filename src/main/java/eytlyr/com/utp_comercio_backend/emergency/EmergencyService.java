@@ -12,12 +12,14 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import eytlyr.com.utp_comercio_backend.ai.ContentCreatedEvent;
 import eytlyr.com.utp_comercio_backend.ai.SourceType;
 import eytlyr.com.utp_comercio_backend.common.BusinessRuleException;
+import eytlyr.com.utp_comercio_backend.common.ConflictException;
 import eytlyr.com.utp_comercio_backend.common.Created;
 import eytlyr.com.utp_comercio_backend.common.ForbiddenException;
 import eytlyr.com.utp_comercio_backend.common.GeoUtils;
@@ -41,9 +43,9 @@ import eytlyr.com.utp_comercio_backend.sos.SosStatus;
 import eytlyr.com.utp_comercio_backend.user.AppUser;
 import eytlyr.com.utp_comercio_backend.user.AppUserRepository;
 import eytlyr.com.utp_comercio_backend.user.Role;
+import eytlyr.com.utp_comercio_backend.ai.dto.AiDtos.ZoneEmergencyActivatedEvent;
 import eytlyr.com.utp_comercio_backend.zone.ModeSource;
 import eytlyr.com.utp_comercio_backend.zone.Zone;
-import eytlyr.com.utp_comercio_backend.zone.ZoneEmergencyActivatedEvent;
 import eytlyr.com.utp_comercio_backend.zone.ZoneMode;
 import eytlyr.com.utp_comercio_backend.zone.ZoneRepository;
 import eytlyr.com.utp_comercio_backend.zone.dto.ZoneDtos.ZoneDto;
@@ -408,5 +410,37 @@ public class EmergencyService {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Reserva cupos en un albergue con Optimistic Locking y verificación atómica de capacidad
+	 * para garantizar concurrencia segura sin condiciones de carrera.
+	 */
+	@Transactional
+	public SafePointDto reserveSpot(UUID userId, UUID safePointId, int count) {
+		SafePoint sp = safePoints.findById(safePointId)
+				.orElseThrow(() -> NotFoundException.of("el refugio"));
+		if (sp.getCapacity() == null) {
+			throw new BusinessRuleException("NOT_A_SHELTER", "Este punto seguro no tiene límite de cupos.");
+		}
+		int currentOccupied = sp.getOccupied() != null ? sp.getOccupied() : 0;
+		if (sp.getCapacity() - currentOccupied < count) {
+			throw new ConflictException("SHELTER_FULL",
+					"Refugio lleno. Se ocuparon los últimos lugares mientras procesábamos tu solicitud");
+		}
+		try {
+			int updated = safePoints.reserveSpotsNative(safePointId, count);
+			if (updated == 0) {
+				throw new ConflictException("SHELTER_FULL",
+						"Refugio lleno. Se ocuparon los últimos lugares mientras procesábamos tu solicitud");
+			}
+			SafePoint reloaded = safePoints.findById(safePointId).orElse(sp);
+			return new SafePointDto(reloaded.getId(), reloaded.getName(), reloaded.getType(),
+					reloaded.getCapacity(), reloaded.getOccupied(), reloaded.getLat(), reloaded.getLng(), null);
+		}
+		catch (ObjectOptimisticLockingFailureException ex) {
+			throw new ConflictException("SHELTER_FULL",
+					"Refugio lleno. Se ocuparon los últimos lugares mientras procesábamos tu solicitud");
+		}
 	}
 }

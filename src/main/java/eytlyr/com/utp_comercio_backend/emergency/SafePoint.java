@@ -51,4 +51,8 @@ public class SafePoint extends BaseEntity {
 	@Column(name = "lng", nullable = false)
 	private double lng;
 
+	@jakarta.persistence.Version
+	@Column(name = "version")
+	private Long version;
+
 }

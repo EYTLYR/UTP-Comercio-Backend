@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import eytlyr.com.utp_comercio_backend.auth.CurrentUser;
+import eytlyr.com.utp_comercio_backend.common.ConflictException;
 import eytlyr.com.utp_comercio_backend.common.PageResponse;
 import eytlyr.com.utp_comercio_backend.emergency.dto.EmergencyDtos.DashboardDto;
 import eytlyr.com.utp_comercio_backend.emergency.dto.EmergencyDtos.ReportStatusRequest;
@@ -129,5 +131,18 @@ public class EmergencyController {
 	@Operation(summary = "Validación manual de brigadista: valida la alerta y activa el modo emergencia en la zona")
 	public ZoneDto validateZone(@PathVariable UUID id, @RequestParam(required = false) String reason) {
 		return emergency.validateAndActivateEmergency(currentUser.id(), id, reason);
+	}
+
+	@PostMapping("/api/v1/safe-points/{id}/reserve")
+	@Operation(summary = "Reservar cupos en un albergue (concurrencia segura: 409 Conflict si está lleno)")
+	public ResponseEntity<SafePointDto> reserveSpot(@PathVariable UUID id,
+			@RequestParam(defaultValue = "1") int count) {
+		try {
+			return ResponseEntity.ok(emergency.reserveSpot(currentUser.id(), id, count));
+		}
+		catch (ObjectOptimisticLockingFailureException ex) {
+			throw new ConflictException("SHELTER_FULL",
+					"Refugio lleno. Se ocuparon los últimos lugares mientras procesábamos tu solicitud");
+		}
 	}
 }

@@ -59,6 +59,14 @@ public class ApiError extends ResponseEntityExceptionHandler {
 		return problem(HttpStatus.CONFLICT, "Conflicto", "Ese registro ya existe.", "CONFLICT");
 	}
 
+	/** Bloqueo optimista (condición de carrera al reservar cupos o actualizar registros concurrentes). */
+	@ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+	ProblemDetail handleOptimisticLock(org.springframework.orm.ObjectOptimisticLockingFailureException ex) {
+		log.warn("Bloqueo optimista por concurrencia: {}", ex.getMessage());
+		return problem(HttpStatus.CONFLICT, "Conflicto",
+				"Refugio lleno. Se ocuparon los últimos lugares mientras procesábamos tu solicitud", "SHELTER_FULL");
+	}
+
 	@ExceptionHandler(Exception.class)
 	ProblemDetail handleUnexpected(Exception ex) {
 		log.error("Error inesperado", ex);

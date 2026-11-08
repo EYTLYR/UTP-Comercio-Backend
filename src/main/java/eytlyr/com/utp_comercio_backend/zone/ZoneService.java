@@ -33,7 +33,10 @@ import eytlyr.com.utp_comercio_backend.zone.dto.ZoneDtos.ModeAction;
 import eytlyr.com.utp_comercio_backend.zone.dto.ZoneDtos.ZoneDto;
 import eytlyr.com.utp_comercio_backend.zone.dto.ZoneDtos.ZoneModeRequest;
 
-/** Modos de la zona: NORMAL, PREVENTION (El Niño) y EMERGENCY; y lo que cada vecino ve en su app. */
+/**
+ * Modos de la zona: NORMAL, PREVENTION (El Niño) y EMERGENCY; y lo que cada
+ * vecino ve en su app.
+ */
 @Service
 public class ZoneService {
 
@@ -73,7 +76,10 @@ public class ZoneService {
 		return ZoneDto.from(z);
 	}
 
-	/** Municipalidad o delegado: cambia el modo de toda la zona y avisa a los vecinos. */
+	/**
+	 * Municipalidad o delegado: cambia el modo de toda la zona y avisa a los
+	 * vecinos.
+	 */
 	@Transactional
 	public ZoneDto setMode(UUID actorId, UUID zoneId, ZoneModeRequest req) {
 		Zone z = zones.findById(zoneId).orElseThrow(() -> NotFoundException.of("la zona"));
@@ -88,8 +94,7 @@ public class ZoneService {
 		if (req.mode() == ZoneMode.PREVENTION) {
 			z.setWeatherLevel(req.weatherLevel() != null ? req.weatherLevel() : WeatherLevel.ORANGE);
 			z.setWeatherValidUntil(req.validUntil());
-		}
-		else if (req.mode() == ZoneMode.NORMAL) {
+		} else if (req.mode() == ZoneMode.NORMAL) {
 			z.setWeatherLevel(null);
 			z.setWeatherValidUntil(null);
 		}
@@ -109,11 +114,14 @@ public class ZoneService {
 	}
 
 	/**
-	 * Si en la zona hay al menos N SOS activos en la ventana configurada (5 en 10 minutos por defecto):
+	 * Si en la zona hay al menos N SOS activos en la ventana configurada (5 en 10
+	 * minutos por defecto):
 	 * - Cuenta únicamente alertas de AppUser distintos (DISTINCT user_id).
 	 * - Excluye usuarios creados en las últimas 24 horas (anti-throwaway/spam).
-	 * - Si las alertas forman un clúster hiperlocal (< 10 metros entre sí), requiere 10 SOS en su lugar
-	 *   o validación manual de un BRIGADISTA.
+	 * - Si las alertas forman un clúster hiperlocal (< 10 metros entre sí),
+	 * requiere 10 SOS en su lugar
+	 * o validación manual de un BRIGADISTA.
+	 * 
 	 * @return true si se activó en esta llamada
 	 */
 	@Transactional
@@ -153,10 +161,12 @@ public class ZoneService {
 
 		z.setMode(ZoneMode.EMERGENCY);
 		z.setModeSource(ModeSource.AUTO_SOS);
-		z.setModeReason(distinctCount + " alertas SOS de usuarios distintos en " + emergencyProps.autoActivateWindowMinutes() + " minutos"
+		z.setModeReason(distinctCount + " alertas SOS de usuarios distintos en "
+				+ emergencyProps.autoActivateWindowMinutes() + " minutos"
 				+ (roomCluster ? " (clúster validado con 10+ SOS)" : ""));
 		z.setModeActivatedAt(now);
-		log.warn("Zona {} pasó a EMERGENCY automáticamente ({} SOS activos de usuarios distintos legítimos)", z.getName(), distinctCount);
+		log.warn("Zona {} pasó a EMERGENCY automáticamente ({} SOS activos de usuarios distintos legítimos)",
+				z.getName(), distinctCount);
 		events.publishEvent(new ZoneEmergencyActivatedEvent(z.getId()));
 		events.publishEvent(Dispatch.builder()
 				.zone(z.getId(), "Modo emergencia activo", "Varios vecinos pidieron ayuda. Revisa el tablero.",
@@ -197,10 +207,15 @@ public class ZoneService {
 		return UserDto.from(u);
 	}
 
-	/** Máximo de zonas que un vecino puede registrar (Municipalidad y plataforma: sin límite). */
+	/**
+	 * Máximo de zonas que un vecino puede registrar (Municipalidad y plataforma:
+	 * sin límite).
+	 */
 	public static final int MAX_ZONES_PER_NEIGHBOR = 5;
 
-	/** Un vecino registra una zona (su barrio, la casa de su familia, su trabajo…). */
+	/**
+	 * Un vecino registra una zona (su barrio, la casa de su familia, su trabajo…).
+	 */
 	@Transactional
 	public ZoneDto create(UUID actorId, eytlyr.com.utp_comercio_backend.zone.dto.ZoneDtos.ZoneCreateRequest req) {
 		AppUser actor = user(actorId);
@@ -222,15 +237,19 @@ public class ZoneService {
 				.toList();
 	}
 
-	/** Zona para un SOS: la del vecino; si no tiene, la que cubre el punto; si ninguna, la más cercana. */
+	/**
+	 * Zona para un SOS: la del vecino; si no tiene, la que cubre el punto; si
+	 * ninguna, la más cercana.
+	 */
 	@Transactional(readOnly = true)
 	public Zone resolve(AppUser user, double lat, double lng) {
 		if (user.getZone() != null) {
 			return user.getZone();
 		}
 		return zones.findAll().stream()
-				.min(Comparator.comparingDouble(z -> GeoUtils.haversineMeters(lat, lng, z.getCenterLat(), z.getCenterLng())
-						/ Math.max(1, z.getRadiusM())))
+				.min(Comparator
+						.comparingDouble(z -> GeoUtils.haversineMeters(lat, lng, z.getCenterLat(), z.getCenterLng())
+								/ Math.max(1, z.getRadiusM())))
 				.orElseThrow(() -> new BusinessRuleException("ZONE_NOT_COVERED", "Nearby aún no llega a tu zona"));
 	}
 

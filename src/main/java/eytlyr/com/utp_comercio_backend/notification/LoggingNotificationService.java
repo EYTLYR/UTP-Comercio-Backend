@@ -7,6 +7,7 @@ import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +16,7 @@ import eytlyr.com.utp_comercio_backend.user.AppUserRepository;
 
 /** Notificaciones de desarrollo: solo escriben en el log. */
 @Component
+@Primary
 @ConditionalOnProperty(prefix = "nearby.notifications", name = "provider", havingValue = "log", matchIfMissing = true)
 public class LoggingNotificationService implements NotificationService {
 
