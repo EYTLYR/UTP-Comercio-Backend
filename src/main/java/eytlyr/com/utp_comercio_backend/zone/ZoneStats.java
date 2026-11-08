@@ -47,3 +47,4 @@ public class ZoneStats {
 	private OffsetDateTime updatedAt = OffsetDateTime.now();
 
 }
+

@@ -7,3 +7,4 @@ CREATE TABLE IF NOT EXISTS zone_stats (
 );
 
 CREATE INDEX IF NOT EXISTS ix_zone_stats_favors_resolved ON zone_stats (favors_resolved);
+

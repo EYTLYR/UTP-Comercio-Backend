@@ -24,6 +24,21 @@ public interface PostRepository extends JpaRepository<Post, UUID> {
 	List<Post> findNear(@Param("minLat") double minLat, @Param("maxLat") double maxLat, @Param("minLng") double minLng,
 			@Param("maxLng") double maxLng, @Param("statuses") Collection<PostStatus> statuses);
 
+	@Query(value = """
+			SELECT p.* FROM post p
+			WHERE p.status IN (:statuses)
+			  AND ST_Intersects(
+			      ST_SetSRID(ST_MakePoint(p.lng, p.lat), 4326),
+			      ST_MakeEnvelope(:minLon, :minLat, :maxLon, :maxLat, 4326)
+			  )
+			ORDER BY p.created_at DESC
+			""", nativeQuery = true)
+	List<Post> findInBoundingBoxNative(@Param("minLon") double minLon,
+			@Param("minLat") double minLat,
+			@Param("maxLon") double maxLon,
+			@Param("maxLat") double maxLat,
+			@Param("statuses") Collection<String> statuses);
+
 	@Query("""
 			select p from Post p join fetch p.author
 			where p.zone.id = :zoneId and p.status in :statuses

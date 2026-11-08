@@ -90,6 +90,35 @@ public class MapService {
 	}
 
 	@Transactional(readOnly = true)
+	public List<Pin> pinsInBoundingBox(UUID userId, Layer layer, double minLat, double maxLat, double minLon, double maxLon) {
+		AppUser me = users.findById(userId).orElseThrow(() -> NotFoundException.of("el usuario"));
+		Map<UUID, Pin> pinMap = new LinkedHashMap<>();
+		switch (layer) {
+			case DAILY -> {
+				services.findActiveInBoundingBoxNative(minLon, minLat, maxLon, maxLat)
+						.forEach(s -> pinMap.put(s.getId(), new Pin(s.getId(), "svc",
+								s.getLat(), s.getLng(), serviceIcon(s.getCategory().name()),
+								s.getOwner().getName() + " · " + s.getTitle(),
+								s.getCategory().label() + " · " + s.getEndorsementCount() + " vistos buenos", "service",
+								s.getId())));
+				posts.findInBoundingBoxNative(minLon, minLat, maxLon, maxLat, List.of(PostStatus.OPEN.name()))
+						.forEach(p -> pinMap.put(p.getId(), postPin(p, me)));
+			}
+			case EMERGENCY -> {
+				if (me.getZone() != null) {
+					addSafePoints(pinMap, me.getZone().getId());
+				}
+			}
+			case PREVENTION -> {
+				if (me.getZone() != null) {
+					addSafePoints(pinMap, me.getZone().getId());
+				}
+			}
+		}
+		return new ArrayList<>(pinMap.values());
+	}
+
+	@Transactional(readOnly = true)
 	public List<Pin> pins(UUID userId, Layer layer, int radiusM) {
 		AppUser me = users.findById(userId).orElseThrow(() -> NotFoundException.of("el usuario"));
 		Zone zone = me.getZone();

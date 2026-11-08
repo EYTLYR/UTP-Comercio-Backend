@@ -4,3 +4,4 @@ import java.util.UUID;
 
 public record PostResolvedEvent(UUID postId, UUID authorId, UUID zoneId) {
 }
+

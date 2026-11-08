@@ -21,4 +21,17 @@ public interface NeighborServiceRepository extends JpaRepository<NeighborService
 	List<NeighborService> findActiveNear(@Param("minLat") double minLat, @Param("maxLat") double maxLat,
 			@Param("minLng") double minLng, @Param("maxLng") double maxLng);
 
+	@Query(value = """
+			SELECT s.* FROM neighbor_service s
+			WHERE s.active = true
+			  AND ST_Intersects(
+			      ST_SetSRID(ST_MakePoint(s.lng, s.lat), 4326),
+			      ST_MakeEnvelope(:minLon, :minLat, :maxLon, :maxLat, 4326)
+			  )
+			""", nativeQuery = true)
+	List<NeighborService> findActiveInBoundingBoxNative(@Param("minLon") double minLon,
+			@Param("minLat") double minLat,
+			@Param("maxLon") double maxLon,
+			@Param("maxLat") double maxLat);
+
 }

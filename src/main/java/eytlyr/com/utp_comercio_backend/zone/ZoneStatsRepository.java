@@ -20,3 +20,4 @@ public interface ZoneStatsRepository extends JpaRepository<ZoneStats, UUID> {
 	void incrementFavorsResolved(@Param("zoneId") UUID zoneId);
 
 }
+
