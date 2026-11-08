@@ -189,11 +189,11 @@ public class MapService {
 
 	private Pin postPin(Post p, AppUser me) {
 		boolean isMine = p.getAuthor().getId().equals(me.getId());
-		double lat = p.getLat() != null ? p.getLat() : 0.0;
-		double lng = p.getLng() != null ? p.getLng() : 0.0;
+		double lat = p.getLat();
+		double lng = p.getLng();
 		// Geofuzzing para proteger la privacidad de vecinos que piden favores (OPEN)
-		if (!isMine && p.getStatus() == PostStatus.OPEN && p.getLat() != null && p.getLng() != null) {
-			double[] fuzzed = GeoUtils.geofuzz(p.getLat(), p.getLng());
+		if (!isMine && p.getStatus() == PostStatus.OPEN) {
+			double[] fuzzed = GeoUtils.geofuzz(lat, lng);
 			lat = fuzzed[0];
 			lng = fuzzed[1];
 		}

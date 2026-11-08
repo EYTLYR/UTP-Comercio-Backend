@@ -2,6 +2,8 @@ package eytlyr.com.utp_comercio_backend.posts;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -34,5 +36,10 @@ public class PostResponse extends BaseEntity {
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "responder_id", nullable = false)
 	private AppUser responder;
+
+	@Enumerated(EnumType.STRING)
+	@Column(name = "status", nullable = false, length = 32)
+	@Builder.Default
+	private PostResponseStatus status = PostResponseStatus.PENDING;
 
 }

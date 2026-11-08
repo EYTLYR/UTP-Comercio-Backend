@@ -1,6 +1,9 @@
 package eytlyr.com.utp_comercio_backend.posts;
 
 import java.time.OffsetDateTime;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -11,6 +14,14 @@ import org.springframework.data.repository.query.Param;
 public interface PostResponseRepository extends JpaRepository<PostResponse, UUID> {
 
 	boolean existsByPostIdAndResponderId(UUID postId, UUID responderId);
+
+	Optional<PostResponse> findByPostIdAndResponderId(UUID postId, UUID responderId);
+
+	long countByResponderIdAndStatusIn(UUID responderId, Collection<PostResponseStatus> statuses);
+
+	List<PostResponse> findByPostIdOrderByCreatedAtDesc(UUID postId);
+
+	List<PostResponse> findByResponderId(UUID responderId);
 
 	@Query("select r.post.id from PostResponse r where r.responder.id = :userId")
 	Set<UUID> postIdsRespondedBy(@Param("userId") UUID userId);

@@ -1,5 +1,6 @@
 package eytlyr.com.utp_comercio_backend.posts;
 
+import java.util.List;
 import java.util.UUID;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +25,7 @@ import eytlyr.com.utp_comercio_backend.common.PageResponse;
 import eytlyr.com.utp_comercio_backend.posts.dto.PostDtos.NeighborhoodStats;
 import eytlyr.com.utp_comercio_backend.posts.dto.PostDtos.PostDto;
 import eytlyr.com.utp_comercio_backend.posts.dto.PostDtos.PostRequest;
+import eytlyr.com.utp_comercio_backend.posts.dto.PostDtos.PostResponseDto;
 import eytlyr.com.utp_comercio_backend.posts.dto.PostDtos.StatusRequest;
 import eytlyr.com.utp_comercio_backend.services.dto.ServiceDtos.ConversationRef;
 
@@ -76,9 +78,27 @@ public class PostController {
 	}
 
 	@PostMapping("/api/v1/posts/{id}/responses")
-	@Operation(summary = "Yo te ayudo / Me interesa: abre el chat con el autor")
-	public ConversationRef respond(@PathVariable UUID id) {
+	@Operation(summary = "Yo te ayudo / Me interesa: crea la solicitud PENDING sin abrir chat")
+	public PostResponseDto respond(@PathVariable UUID id) {
 		return posts.respond(currentUser.id(), id);
+	}
+
+	@GetMapping("/api/v1/posts/{id}/responses")
+	@Operation(summary = "Ver las solicitudes de ayuda recibidas para mi publicación")
+	public List<PostResponseDto> listResponses(@PathVariable UUID id) {
+		return posts.listResponses(currentUser.id(), id);
+	}
+
+	@PostMapping("/api/v1/posts/{id}/responses/{responseId}/accept")
+	@Operation(summary = "Aceptar solicitud de ayuda: pasa a IN_PROGRESS y abre el chat")
+	public ConversationRef acceptResponse(@PathVariable UUID id, @PathVariable UUID responseId) {
+		return posts.acceptResponse(currentUser.id(), id, responseId);
+	}
+
+	@PostMapping("/api/v1/posts/{id}/responses/{responseId}/reject")
+	@Operation(summary = "Rechazar solicitud de ayuda: pasa a REJECTED")
+	public PostResponseDto rejectResponse(@PathVariable UUID id, @PathVariable UUID responseId) {
+		return posts.rejectResponse(currentUser.id(), id, responseId);
 	}
 
 	@GetMapping("/api/v1/neighborhood/stats")

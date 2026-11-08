@@ -85,7 +85,13 @@ class PostChatFlowTest {
 				.andReturn().getResponse().getContentAsString();
 		String postId = JsonPath.read(post, "$.id");
 
-		String ref = mvc.perform(post("/api/v1/posts/" + postId + "/responses").header("Authorization", elena.bearer()))
+		String resp = mvc.perform(post("/api/v1/posts/" + postId + "/responses").header("Authorization", elena.bearer()))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("PENDING"))
+				.andReturn().getResponse().getContentAsString();
+		String responseId = JsonPath.read(resp, "$.id");
+
+		String ref = mvc.perform(post("/api/v1/posts/" + postId + "/responses/" + responseId + "/accept").header("Authorization", maria.bearer()))
 				.andExpect(status().isOk())
 				.andReturn().getResponse().getContentAsString();
 		String conversationId = JsonPath.read(ref, "$.conversationId");
@@ -106,7 +112,7 @@ class PostChatFlowTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(2))
 				.andExpect(jsonPath("$[0].system").value(true))
-				.andExpect(jsonPath("$[0].text").value("Le ofreciste ayuda: «Ayuda para cargar un ropero»"))
+				.andExpect(jsonPath("$[0].text").value("Aceptaste la ayuda de Elena Vargas para: «Ayuda para cargar un ropero»"))
 				.andExpect(jsonPath("$[1].senderName").value("Elena Vargas"));
 
 		mvc.perform(get("/api/v1/conversations/" + conversationId + "/messages").header("Authorization", jorge.bearer()))
