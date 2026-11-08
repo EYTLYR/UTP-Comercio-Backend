@@ -109,7 +109,9 @@ La base arranca **vacía**: sin usuarios, sin publicaciones y sin zonas. Todo lo
 **Zonas:**
 - **Al guardar la casa** (`PUT /api/v1/me/location`), el vecino queda en la zona que cubre su casa. Si ninguna la cubre, se crea la zona de su barrio, con un radio de 1,2 km. La app manda `zoneName` (urbanización o barrio) y `district`, que saca de OpenStreetMap.
 - **Desde su panel**, la Municipalidad crea zonas de su distrito con `POST /api/v1/municipality/zones` (`name`, `lat`, `lng`, `radiusM`). El ADMIN también puede, indicando `district`.
-- **Para explorarlas** en el mapa: `GET /api/v1/zones`.
+- **Un vecino registra zonas** (su barrio, la casa de su familia, su trabajo) con `POST /api/v1/zones` (`name`, `lat`, `lng`, `radiusM`, `district`). Puede registrar hasta 5; la Municipalidad y el ADMIN no tienen límite.
+- **Para explorarlas** en el mapa: `GET /api/v1/zones`. Los pines de otra zona se piden con `GET /api/v1/map/pins?zoneId=…`.
+- **Cercanía antes que zona:** el muro (`GET /api/v1/posts`), los oficios y los pines del día muestran lo que está dentro del radio pedido alrededor de la casa del vecino, aunque sea de la zona de al lado. En las publicaciones propias, `responsesCount` dice cuántos vecinos respondieron.
 - **Zona de ejemplo antigua:** las bases que aún tienen la «Zona 3 · Las Flores» la pierden sola. Cada vecino que estaba en ella pasa a la zona de su barrio la próxima vez que abre la app, y se lleva lo que publicó. La zona se borra en el siguiente arranque, cuando ya no la usa nadie.
 
 **Perfil:** `GET /api/v1/me/stats` devuelve los favores que hice, los vistos buenos que di y los favores que recibí.

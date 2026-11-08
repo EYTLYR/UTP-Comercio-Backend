@@ -60,6 +60,10 @@ public class Zone extends BaseEntity {
 	@Column(name = "weather_level", length = 40)
 	private WeatherLevel weatherLevel;
 
+	/** Quién registró la zona (null: se creó sola al guardar la casa de un vecino). */
+	@Column(name = "created_by")
+	private java.util.UUID createdBy;
+
 	@Column(name = "weather_valid_until")
 	private OffsetDateTime weatherValidUntil;
 

@@ -34,6 +34,9 @@ import eytlyr.com.utp_comercio_backend.emergency.dto.EmergencyDtos.VulnerableRep
 import eytlyr.com.utp_comercio_backend.notification.Dispatch;
 import eytlyr.com.utp_comercio_backend.prevention.MitigationType;
 import eytlyr.com.utp_comercio_backend.sos.CheckInRepository;
+import eytlyr.com.utp_comercio_backend.zone.ZoneRepository;
+import eytlyr.com.utp_comercio_backend.zone.ZoneMode;
+import eytlyr.com.utp_comercio_backend.zone.Zone;
 import eytlyr.com.utp_comercio_backend.sos.CheckInStatus;
 import eytlyr.com.utp_comercio_backend.sos.SosAlertRepository;
 import eytlyr.com.utp_comercio_backend.sos.SosStatus;
@@ -69,10 +72,13 @@ public class EmergencyService {
 
 	private final Clock clock;
 
+	private final ZoneRepository zones;
+
 	public EmergencyService(VulnerableReportRepository reports, ResourceListingRepository listings,
 			SupportGroupRepository groups, SupportGroupMemberRepository members, SafePointRepository safePoints,
 			CheckInRepository checkIns, SosAlertRepository sosAlerts, AppUserRepository users,
-			ApplicationEventPublisher events, Clock clock) {
+			ApplicationEventPublisher events, Clock clock, ZoneRepository zones) {
+		this.zones = zones;
 		this.reports = reports;
 		this.listings = listings;
 		this.groups = groups;
@@ -87,12 +93,19 @@ public class EmergencyService {
 
 	// ---------------------------------------------------------------- tablero humanitario
 
+	/** «A salvo»: vecinos distintos que marcaron «Estoy bien» desde que empezó la emergencia (máximo 24 h). */
 	@Transactional(readOnly = true)
 	public DashboardDto dashboard(UUID zoneId) {
+		OffsetDateTime since = OffsetDateTime.now(clock).minusHours(24);
+		Zone zone = zones.findById(zoneId).orElse(null);
+		if (zone != null && zone.getMode() == ZoneMode.EMERGENCY && zone.getModeActivatedAt() != null
+				&& zone.getModeActivatedAt().isAfter(since)) {
+			since = zone.getModeActivatedAt();
+		}
 		return new DashboardDto(reports.countByZoneId(zoneId), reports.countByZoneIdAndStatus(zoneId, ReportStatus.PENDING),
 				reports.countByZoneIdAndStatus(zoneId, ReportStatus.ON_THE_WAY),
 				reports.countByZoneIdAndStatus(zoneId, ReportStatus.ATTENDED),
-				checkIns.countUsers(zoneId, CheckInStatus.SAFE, OffsetDateTime.now(clock).minusHours(24)),
+				checkIns.countUsers(zoneId, CheckInStatus.SAFE, since),
 				sosAlerts.countByZoneIdAndStatus(zoneId, SosStatus.ACTIVE));
 	}
 

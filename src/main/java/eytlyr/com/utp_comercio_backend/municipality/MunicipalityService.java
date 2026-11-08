@@ -226,7 +226,7 @@ public class MunicipalityService {
 			district = ownMunicipality(actorId).getDistrict();
 		}
 		int radius = req.radiusM() != null ? req.radiusM() : ZoneFactory.DEFAULT_RADIUS_M;
-		return ZoneDto.from(zoneFactory.create(req.name(), district, req.lat(), req.lng(), radius));
+		return ZoneDto.from(zoneFactory.create(req.name(), district, req.lat(), req.lng(), radius, actorId));
 	}
 
 	private Municipality ownMunicipality(UUID actorId) {

@@ -31,7 +31,8 @@ public class MapController {
 	@GetMapping("/api/v1/map/pins")
 	@Operation(summary = "Pines del mapa: layer=daily|emergency|prevention")
 	public List<Pin> pins(@RequestParam(defaultValue = "daily") String layer,
-			@RequestParam(defaultValue = "1500") int radiusM) {
+			@RequestParam(defaultValue = "1500") int radiusM,
+			@RequestParam(required = false) java.util.UUID zoneId) {
 		Layer l;
 		try {
 			l = Layer.valueOf(layer.toUpperCase(Locale.ROOT));
@@ -39,6 +40,8 @@ public class MapController {
 		catch (IllegalArgumentException ex) {
 			throw new BusinessRuleException("MAP_LAYER_INVALID", "La capa debe ser daily, emergency o prevention.");
 		}
-		return map.pins(currentUser.id(), l, radiusM);
+		// zoneId: explorar otra zona (pines alrededor de su centro).
+		return zoneId != null ? map.pinsInZone(currentUser.id(), zoneId, l, radiusM)
+				: map.pins(currentUser.id(), l, radiusM);
 	}
 }

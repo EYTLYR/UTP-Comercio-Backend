@@ -30,6 +30,7 @@ import eytlyr.com.utp_comercio_backend.services.NeighborServiceRepository;
 import eytlyr.com.utp_comercio_backend.user.AppUser;
 import eytlyr.com.utp_comercio_backend.user.AppUserRepository;
 import eytlyr.com.utp_comercio_backend.zone.Zone;
+import eytlyr.com.utp_comercio_backend.zone.ZoneRepository;
 
 /** Pines del mapa por capa. Los íconos son nombres de Material Symbols, los mismos que usa la app. */
 @Service
@@ -66,9 +67,13 @@ public class MapService {
 
 	private final Clock clock;
 
+	private final ZoneRepository zones;
+
 	public MapService(AppUserRepository users, NeighborServiceRepository services, PostRepository posts,
 			VulnerableReportRepository reports, SafePointRepository safePoints, ResourceListingRepository listings,
-			SupportGroupRepository groups, RiskReportRepository risks, CapabilityRepository capabilities, Clock clock) {
+			SupportGroupRepository groups, RiskReportRepository risks, CapabilityRepository capabilities, Clock clock,
+			ZoneRepository zones) {
+		this.zones = zones;
 		this.users = users;
 		this.services = services;
 		this.posts = posts;
@@ -88,19 +93,42 @@ public class MapService {
 		if (zone == null) {
 			return List.of();
 		}
+		return pinsAround(me, zone, layer, radiusM);
+	}
+
+	/** Pines alrededor de un punto (mi casa o el centro de la zona que estoy mirando). */
+	@Transactional(readOnly = true)
+	public List<Pin> pinsInZone(UUID userId, UUID zoneId, Layer layer, int radiusM) {
+		AppUser me = users.findById(userId).orElseThrow(() -> NotFoundException.of("el usuario"));
+		Zone zone = zones.findById(zoneId).orElseThrow(() -> NotFoundException.of("la zona"));
+		return pinsAround(me, zone, layer, Math.max(radiusM, zone.getRadiusM()), zone.getCenterLat(),
+				zone.getCenterLng());
+	}
+
+	private List<Pin> pinsAround(AppUser me, Zone zone, Layer layer, int radiusM) {
 		double refLat = me.getLat() != null ? me.getLat() : zone.getCenterLat();
 		double refLng = me.getLng() != null ? me.getLng() : zone.getCenterLng();
+		return pinsAround(me, zone, layer, radiusM, refLat, refLng);
+	}
+
+	private List<Pin> pinsAround(AppUser me, Zone zone, Layer layer, int radiusM, double refLat, double refLng) {
 		UUID zoneId = zone.getId();
+		double[] box = GeoUtils.box(refLat, refLng, radiusM);
 		List<Pin> pins = new ArrayList<>();
 		switch (layer) {
 			case DAILY -> {
-				services.findActiveInZone(zoneId).forEach(s -> pins.add(new Pin(s.getId(), "svc", s.getLat(), s.getLng(),
-						serviceIcon(s.getCategory().name()), s.getTitle(), s.getOwner().getName() + " · "
-								+ s.getEndorsementCount() + " vistos buenos", "service", s.getId())));
-				posts.findInZone(zoneId, EnumSet.of(PostStatus.OPEN)).forEach(p -> pins.add(new Pin(p.getId(),
-						p.getType() == PostType.NEED ? "need" : "offer", p.getLat(), p.getLng(),
-						p.getType() == PostType.NEED ? "front_hand" : "volunteer_activism", p.getCategory().label(),
-						p.getText(), "post", p.getId())));
+				services.findActiveNear(box[0], box[1], box[2], box[3]).forEach(s -> pins.add(new Pin(s.getId(), "svc",
+						s.getLat(), s.getLng(), serviceIcon(s.getCategory().name()),
+						s.getOwner().getName() + " · " + s.getTitle(),
+						s.getCategory().label() + " · " + s.getEndorsementCount() + " vistos buenos", "service",
+						s.getId())));
+				posts.findNear(box[0], box[1], box[2], box[3], EnumSet.of(PostStatus.OPEN)).forEach(p -> pins.add(
+						new Pin(p.getId(), p.getType() == PostType.NEED ? "need" : "offer", p.getLat(), p.getLng(),
+								p.getType() == PostType.NEED ? "front_hand" : "volunteer_activism",
+								p.getAuthor().getName() + (p.getType() == PostType.NEED ? " necesita ayuda" : " ofrece ayuda"),
+								p.getCategory().label() + (p.getText() != null && !p.getText().isBlank()
+										? ": " + p.getText() : ""),
+								"post", p.getId())));
 			}
 			case EMERGENCY -> {
 				boolean exact = EmergencyService.isBrigade(me);

@@ -74,9 +74,15 @@ public class ServiceCatalogService {
 		boolean hasRef = refLat != null && refLng != null;
 		Set<UUID> mine = endorsements.serviceIdsEndorsedBy(userId);
 
-		List<NeighborService> candidates = me.getZone() != null
-				? services.findActiveInZone(me.getZone().getId())
-				: services.findAllActive();
+		List<NeighborService> candidates;
+		if (hasRef) {
+			double[] b = GeoUtils.box(refLat, refLng, query.radiusM());
+			candidates = services.findActiveNear(b[0], b[1], b[2], b[3]);
+		}
+		else {
+			candidates = me.getZone() != null ? services.findActiveInZone(me.getZone().getId())
+					: services.findAllActive();
+		}
 
 		List<ServiceSummaryDto> all = candidates.stream()
 				.filter(s -> query.category() == null || s.getCategory() == query.category())

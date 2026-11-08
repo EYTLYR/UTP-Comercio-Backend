@@ -19,4 +19,6 @@ public interface PostResponseRepository extends JpaRepository<PostResponse, UUID
 
 	long countByResponderId(UUID responderId);
 
+	long countByPostId(UUID postId);
+
 }
