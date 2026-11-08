@@ -75,15 +75,48 @@ public class HttpSmsGateway implements SmsGateway {
 		RuntimeException last = null;
 		for (int attempt = 1; attempt <= RETRIES + 1; attempt++) {
 			try {
-				http.post()
+				String responseBody = http.post()
 						.uri("/v1/messages")
 						.header("X-Api-Key", apiKey)
 						.contentType(MediaType.APPLICATION_JSON)
 						.body(body)
 						.retrieve()
-						.toBodilessEntity();
+						.body(String.class);
 				log.info("[SMS → {}] en cola del microservicio{}", TextUtils.maskPhone(phone),
 						attempt > 1 ? " (intento " + attempt + ")" : "");
+
+				// Verificar si el microservicio o chip celular reportó fallo inmediato (ej. falta de saldo)
+				if (responseBody != null && !responseBody.isBlank()) {
+					try {
+						JsonNode node = JSON.readTree(responseBody);
+						String msgId = node.path("id").asText(null);
+						if (msgId != null && !msgId.isBlank()) {
+							pause(Duration.ofMillis(700));
+							String statusBody = http.get()
+									.uri("/api/status/" + msgId)
+									.header("X-Api-Key", apiKey)
+									.retrieve()
+									.body(String.class);
+							if (statusBody != null && !statusBody.isBlank()) {
+								JsonNode statusNode = JSON.readTree(statusBody);
+								String state = statusNode.path("state").asText("");
+								if ("Failed".equalsIgnoreCase(state)) {
+									String err = statusNode.path("recipients").path(0).path("error")
+											.asText("Fallo de entrega en el chip del dispositivo");
+									log.warn("El dispositivo SMS reportó fallo de envío para {}: {}",
+											TextUtils.maskPhone(phone), err);
+									throw new IllegalStateException("El chip celular no pudo enviar el SMS: " + err);
+								}
+							}
+						}
+					}
+					catch (IllegalStateException ex) {
+						throw ex;
+					}
+					catch (Exception ignored) {
+						// Si falla la consulta de verificación no interrumpir
+					}
+				}
 				return;
 			}
 			catch (RestClientResponseException ex) {

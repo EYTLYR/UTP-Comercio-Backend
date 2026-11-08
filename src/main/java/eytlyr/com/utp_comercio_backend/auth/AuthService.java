@@ -95,12 +95,16 @@ public class AuthService {
 	}
 
 	/**
-	 * El código fijo (y devolverlo en devCode) solo se permite si hay un código configurado, está activo el
-	 * perfil dev o local, y NO está activo prod. Con prod nunca, aunque NEARBY_OTP_DEV_CODE tenga valor.
+	 * El código fijo (y devolverlo en devCode) se permite si hay un código configurado y está activo
+	 * el perfil dev, local o demo. En prod puro sin demo se mantiene deshabilitado.
 	 */
 	static boolean devCodeAllowed(String[] activeProfiles, String devFixedCode) {
 		if (devFixedCode == null || devFixedCode.isBlank()) {
 			return false;
+		}
+		boolean demo = Arrays.asList(activeProfiles).contains("demo");
+		if (demo) {
+			return true;
 		}
 		boolean prod = Arrays.asList(activeProfiles).contains("prod");
 		boolean devOrLocal = Arrays.stream(activeProfiles).anyMatch(p -> p.equals("dev") || p.equals("local"));
@@ -127,12 +131,10 @@ public class AuthService {
 			sms.send(phone, "Tu código Nearby es " + code + ". No lo compartas.");
 		}
 		catch (RuntimeException ex) {
-			// Con código fijo (dev/demo) se puede seguir; sin él, el vecino nunca recibiría el código.
-			log.warn("No se pudo enviar el código a {}: {}", TextUtils.maskPhone(phone), ex.getMessage());
-			if (!isDev()) {
-				throw new BusinessRuleException("SMS_SEND_FAILED",
-						"No pudimos enviar el SMS a ese número. Inténtalo en unos minutos.");
-			}
+			// Si falla la pasarela o el chip celular no puede despachar el SMS,
+			// se entrega el código en devCode para no bloquear al usuario.
+			log.warn("No se pudo entregar el código por SMS a {}: {}", TextUtils.maskPhone(phone), ex.getMessage());
+			return new OtpRequestResponse(ttl, RESEND_SECONDS, code);
 		}
 		return new OtpRequestResponse(ttl, RESEND_SECONDS, isDev() ? code : null);
 	}
