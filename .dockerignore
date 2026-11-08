@@ -3,4 +3,7 @@ target/
 .idea/
 .vscode/
 *.iml
-.env
+*.log
+.env.*
+!.env.example
+# .env se incluye expresamente para generar la imagen autónoma solicitada.

@@ -1,0 +1,18 @@
+# Solo la API: PostgreSQL/PostGIS y el almacenamiento son servicios externos.
+services:
+  app:
+    image: nearby-backend:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    # Permite actualizar la configuración sin reconstruir la imagen.
+    # docker run también funciona con el .env incorporado en la imagen.
+    env_file:
+      - .env
+    environment:
+      PORT: '8080'
+      DOCKER_COMPOSE_ENABLED: 'false'
+    ports:
+      - '${PORT:-8080}:8080'

@@ -1,25 +1,18 @@
-# PostgreSQL para desarrollo. Spring Boot Docker Compose Support lo levanta solo
-# al ejecutar ./mvnw spring-boot:run (perfil dev) y le pasa la conexión a la app.
+# Solo la API: PostgreSQL/PostGIS y el almacenamiento son servicios externos.
 services:
-  postgres:
-    # PostgreSQL 16 con PostGIS (la migración V4 lo necesita).
-    image: 'postgis/postgis:16-3.5-alpine'
+  app:
+    image: nearby-backend:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    # Permite actualizar la configuración sin reconstruir la imagen.
+    # docker run también funciona con el .env incorporado en la imagen.
+    env_file:
+      - .env
     environment:
-      - 'POSTGRES_DB=nearby'
-      - 'POSTGRES_USER=nearby'
-      - 'POSTGRES_PASSWORD=nearby'
-      - 'TZ=America/Lima'
+      PORT: '8080'
+      DOCKER_COMPOSE_ENABLED: 'false'
     ports:
-      # Puerto del host aleatorio para no chocar con un PostgreSQL local en 5432.
-      # Spring Boot detecta el puerto asignado. Para fijarlo usa '5432:5432'.
-      - '5432'
-    volumes:
-      - 'nearby-data:/var/lib/postgresql/data'
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U nearby -d nearby']
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-volumes:
-  nearby-data:
+      - '${PORT:-8080}:8080'
