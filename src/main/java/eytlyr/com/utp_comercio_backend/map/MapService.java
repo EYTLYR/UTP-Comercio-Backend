@@ -101,8 +101,13 @@ public class MapService {
 	public List<Pin> pinsInZone(UUID userId, UUID zoneId, Layer layer, int radiusM) {
 		AppUser me = users.findById(userId).orElseThrow(() -> NotFoundException.of("el usuario"));
 		Zone zone = zones.findById(zoneId).orElseThrow(() -> NotFoundException.of("la zona"));
-		return pinsAround(me, zone, layer, Math.max(radiusM, zone.getRadiusM()), zone.getCenterLat(),
+		List<Pin> pins = pinsAround(me, zone, layer, Math.max(radiusM, zone.getRadiusM()), zone.getCenterLat(),
 				zone.getCenterLng());
+		if (me.getZone() != null && me.getZone().getId().equals(zoneId)) {
+			return pins;
+		}
+		// Otra zona: solo lo público (oficios y puntos seguros), nunca pedidos ni reportes de sus vecinos.
+		return pins.stream().filter(p -> "svc".equals(p.kind()) || "safe".equals(p.kind())).toList();
 	}
 
 	private List<Pin> pinsAround(AppUser me, Zone zone, Layer layer, int radiusM) {
