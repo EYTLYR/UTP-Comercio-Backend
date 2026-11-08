@@ -326,7 +326,8 @@ public class PostService {
 				.toList();
 		return new PostDto(d.id(), d.type(), d.category(), d.categoryLabel(), d.text(), d.authorName(),
 				d.authorInitials(), d.distanceM(), d.createdAt(), d.respondedByMe(), d.status(), true,
-				incoming.size(), d.authorZoneName(), d.lat(), d.lng(), d.myResponseStatus(), incoming);
+				incoming.size(), d.authorZoneName(), d.lat(), d.lng(), d.myResponseStatus(), incoming,
+				d.photoUrl());
 	}
 
 	private static PostDto toDto(Post p, AppUser viewer, Map<UUID, PostResponseStatus> myResponseMap) {
@@ -348,6 +349,6 @@ public class PostService {
 		return new PostDto(p.getId(), p.getType(), p.getCategory(), p.getCategory().label(), p.getText(), a.getName(),
 				TextUtils.initials(a.getName()), distance, p.getCreatedAt(), myStatus != null,
 				p.getStatus(), isMine, 0, a.getZone() != null ? a.getZone().getName() : null,
-				lat, lng, myStatus, List.of());
+				lat, lng, myStatus, List.of(), p.getPhotoUrl());
 	}
 }

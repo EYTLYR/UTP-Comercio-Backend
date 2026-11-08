@@ -48,7 +48,8 @@ public final class PostDtos {
 			boolean respondedByMe, PostStatus status, boolean mine, long responsesCount, String authorZoneName,
 			Double lat, Double lng,
 			PostResponseStatus myResponseStatus,
-			List<PostResponseDto> incomingResponses) {
+			List<PostResponseDto> incomingResponses,
+			String photoUrl) {
 	}
 
 	public record StatusRequest(@NotNull(message = "Falta el estado") PostStatus status) {
