@@ -51,7 +51,7 @@ public class PostService {
 
 	static final int MONTHLY_GOAL = 180;
 
-	private static final Set<PostStatus> VISIBLE = EnumSet.of(PostStatus.OPEN, PostStatus.MATCHED);
+	private static final Set<PostStatus> VISIBLE = EnumSet.of(PostStatus.OPEN, PostStatus.IN_PROGRESS, PostStatus.MATCHED);
 
 	private final PostRepository posts;
 
@@ -109,22 +109,28 @@ public class PostService {
 		return new Created<>(withResponses(toDto(p, me, Map.of())), true);
 	}
 
-	@Transactional(readOnly = true)
 	public PageResponse<PostDto> list(UUID userId, PostType type, PostCategory category, int radiusM, int page,
+			int size) {
+		return list(userId, type, category, null, radiusM, page, size);
+	}
+
+	@Transactional(readOnly = true)
+	public PageResponse<PostDto> list(UUID userId, PostType type, PostCategory category, PostStatus status, int radiusM, int page,
 			int size) {
 		AppUser me = user(userId);
 		Map<UUID, PostResponseStatus> responded = responses.findByResponderId(userId).stream()
 				.collect(Collectors.toMap(r -> r.getPost().getId(), PostResponse::getStatus, (a, b) -> a));
 		int effectiveRadius = Math.max(radiusM, me.getZone() != null ? Math.max(me.getZone().getRadiusM(), 5000) : 5000);
+		Set<PostStatus> targetStatuses = status != null ? EnumSet.of(status) : VISIBLE;
 		Set<Post> sourceSet = new LinkedHashSet<>();
 		if (me.getZone() != null) {
-			sourceSet.addAll(posts.findInZone(me.getZone().getId(), VISIBLE));
+			sourceSet.addAll(posts.findInZone(me.getZone().getId(), targetStatuses));
 		}
 		Double refLat = me.getLat() != null ? me.getLat() : (me.getZone() != null ? me.getZone().getCenterLat() : null);
 		Double refLng = me.getLng() != null ? me.getLng() : (me.getZone() != null ? me.getZone().getCenterLng() : null);
 		if (refLat != null && refLng != null) {
 			double[] b = GeoUtils.box(refLat, refLng, effectiveRadius);
-			sourceSet.addAll(posts.findNear(b[0], b[1], b[2], b[3], VISIBLE));
+			sourceSet.addAll(posts.findNear(b[0], b[1], b[2], b[3], targetStatuses));
 		}
 		else if (sourceSet.isEmpty()) {
 			return new PageResponse<>(List.of(), page, size, 0, 0);
@@ -154,7 +160,14 @@ public class PostService {
 	@Transactional
 	public PostDto updateStatus(UUID userId, UUID postId, PostStatus status) {
 		Post p = authored(userId, postId);
+		PostStatus prev = p.getStatus();
 		p.setStatus(status);
+		posts.save(p);
+		if ((status == PostStatus.RESOLVED || status == PostStatus.DONE)
+				&& prev != PostStatus.RESOLVED && prev != PostStatus.DONE) {
+			events.publishEvent(new PostResolvedEvent(p.getId(), p.getAuthor().getId(),
+					p.getZone() != null ? p.getZone().getId() : null));
+		}
 		return withResponses(toDto(p, p.getAuthor(), Map.of()));
 	}
 
@@ -213,7 +226,7 @@ public class PostService {
 		r.setStatus(PostResponseStatus.IN_PROGRESS);
 		responses.save(r);
 
-		p.setStatus(PostStatus.MATCHED);
+		p.setStatus(PostStatus.IN_PROGRESS);
 		posts.save(p);
 
 		AppUser author = p.getAuthor();

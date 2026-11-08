@@ -138,9 +138,9 @@ public class MapService {
 						s.getOwner().getName() + " · " + s.getTitle(),
 						s.getCategory().label() + " · " + s.getEndorsementCount() + " vistos buenos", "service",
 						s.getId())));
-				posts.findInZone(zoneId, EnumSet.of(PostStatus.OPEN, PostStatus.MATCHED)).forEach(p -> pinMap.put(
+				posts.findInZone(zoneId, EnumSet.of(PostStatus.OPEN)).forEach(p -> pinMap.put(
 						p.getId(), postPin(p, me)));
-				posts.findNear(box[0], box[1], box[2], box[3], EnumSet.of(PostStatus.OPEN, PostStatus.MATCHED)).forEach(p -> pinMap.putIfAbsent(
+				posts.findNear(box[0], box[1], box[2], box[3], EnumSet.of(PostStatus.OPEN)).forEach(p -> pinMap.putIfAbsent(
 						p.getId(), postPin(p, me)));
 			}
 			case EMERGENCY -> {

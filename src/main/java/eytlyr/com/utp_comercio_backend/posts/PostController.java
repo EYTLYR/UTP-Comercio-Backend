@@ -51,12 +51,14 @@ public class PostController {
 	@GetMapping("/api/v1/posts")
 	@Operation(summary = "Publicaciones abiertas del barrio, la más reciente primero")
 	public PageResponse<PostDto> list(@RequestParam(required = false) PostType type,
-			@RequestParam(required = false) PostCategory category, @RequestParam(defaultValue = "5000") int radiusM,
+			@RequestParam(required = false) PostCategory category,
+			@RequestParam(required = false) PostStatus status,
+			@RequestParam(defaultValue = "5000") int radiusM,
 			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
 		int safePage = Math.max(page, 0);
 		int safeSize = Math.clamp(size, 1, 50);
 		int safeRadius = Math.clamp(radiusM, 100, 10000);
-		return posts.list(currentUser.id(), type, category, safeRadius, safePage, safeSize);
+		return posts.list(currentUser.id(), type, category, status, safeRadius, safePage, safeSize);
 	}
 
 	@GetMapping("/api/v1/posts/{id}")

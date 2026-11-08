@@ -97,14 +97,14 @@ public class SyncService {
 		// Publicaciones: abiertas o emparejadas = actualizadas; canceladas o terminadas = borradas.
 		List<Post> allPosts = posts.findByZoneId(zoneId).stream().filter(changedSince(since)).toList();
 		List<SyncPost> pst = allPosts.stream()
-				.filter(p -> p.getStatus() == PostStatus.OPEN || p.getStatus() == PostStatus.MATCHED)
+				.filter(p -> p.getStatus() == PostStatus.OPEN || p.getStatus() == PostStatus.IN_PROGRESS || p.getStatus() == PostStatus.MATCHED)
 				.limit(MAX_ITEMS)
 				.map(p -> new SyncPost(p.getId(), p.getType(), p.getCategory(), p.getText(), p.getAuthor().getName(),
 						p.getStatus(), p.getLat(), p.getLng(), p.getCreatedAt(), p.getUpdatedAt()))
 				.toList();
 
 		Deleted deleted = new Deleted(
-				allPosts.stream().filter(p -> p.getStatus() == PostStatus.CANCELLED || p.getStatus() == PostStatus.DONE)
+				allPosts.stream().filter(p -> p.getStatus() == PostStatus.CANCELLED || p.getStatus() == PostStatus.RESOLVED || p.getStatus() == PostStatus.DONE)
 						.map(Post::getId).toList(),
 				allServices.stream().filter(s -> !s.isActive()).map(NeighborService::getId).toList());
 
