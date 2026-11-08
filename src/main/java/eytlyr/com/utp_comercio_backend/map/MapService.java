@@ -24,6 +24,7 @@ import eytlyr.com.utp_comercio_backend.emergency.SafePointRepository;
 import eytlyr.com.utp_comercio_backend.emergency.SafePointType;
 import eytlyr.com.utp_comercio_backend.emergency.SupportGroupRepository;
 import eytlyr.com.utp_comercio_backend.emergency.VulnerableReportRepository;
+import eytlyr.com.utp_comercio_backend.posts.Post;
 import eytlyr.com.utp_comercio_backend.posts.PostRepository;
 import eytlyr.com.utp_comercio_backend.posts.PostStatus;
 import eytlyr.com.utp_comercio_backend.posts.PostType;
@@ -138,19 +139,9 @@ public class MapService {
 						s.getCategory().label() + " · " + s.getEndorsementCount() + " vistos buenos", "service",
 						s.getId())));
 				posts.findInZone(zoneId, EnumSet.of(PostStatus.OPEN, PostStatus.MATCHED)).forEach(p -> pinMap.put(
-						p.getId(), new Pin(p.getId(), p.getType() == PostType.NEED ? "need" : "offer", p.getLat(), p.getLng(),
-								p.getType() == PostType.NEED ? "front_hand" : "volunteer_activism",
-								p.getAuthor().getName() + (p.getType() == PostType.NEED ? " necesita ayuda" : " ofrece ayuda"),
-								p.getCategory().label() + (p.getText() != null && !p.getText().isBlank()
-										? ": " + p.getText() : ""),
-								"post", p.getId())));
+						p.getId(), postPin(p, me)));
 				posts.findNear(box[0], box[1], box[2], box[3], EnumSet.of(PostStatus.OPEN, PostStatus.MATCHED)).forEach(p -> pinMap.putIfAbsent(
-						p.getId(), new Pin(p.getId(), p.getType() == PostType.NEED ? "need" : "offer", p.getLat(), p.getLng(),
-								p.getType() == PostType.NEED ? "front_hand" : "volunteer_activism",
-								p.getAuthor().getName() + (p.getType() == PostType.NEED ? " necesita ayuda" : " ofrece ayuda"),
-								p.getCategory().label() + (p.getText() != null && !p.getText().isBlank()
-										? ": " + p.getText() : ""),
-								"post", p.getId())));
+						p.getId(), postPin(p, me)));
 			}
 			case EMERGENCY -> {
 				boolean exact = EmergencyService.isBrigade(me);
@@ -194,6 +185,23 @@ public class MapService {
 				p.getType() == SafePointType.SHELTER ? "night_shelter" : "flag", p.getName(),
 				p.getCapacity() != null ? p.getOccupied() + " de " + p.getCapacity() + " cupos" : "Punto de reunión",
 				"safe_point", p.getId())));
+	}
+
+	private Pin postPin(Post p, AppUser me) {
+		boolean isMine = p.getAuthor().getId().equals(me.getId());
+		double lat = p.getLat() != null ? p.getLat() : 0.0;
+		double lng = p.getLng() != null ? p.getLng() : 0.0;
+		// Geofuzzing para proteger la privacidad de vecinos que piden favores (OPEN)
+		if (!isMine && p.getStatus() == PostStatus.OPEN && p.getLat() != null && p.getLng() != null) {
+			double[] fuzzed = GeoUtils.geofuzz(p.getLat(), p.getLng());
+			lat = fuzzed[0];
+			lng = fuzzed[1];
+		}
+		return new Pin(p.getId(), p.getType() == PostType.NEED ? "need" : "offer", lat, lng,
+				p.getType() == PostType.NEED ? "front_hand" : "volunteer_activism",
+				p.getAuthor().getName() + (p.getType() == PostType.NEED ? " necesita ayuda" : " ofrece ayuda"),
+				p.getCategory().label() + (p.getText() != null && !p.getText().isBlank() ? ": " + p.getText() : ""),
+				"post", p.getId());
 	}
 
 	static String serviceIcon(String category) {

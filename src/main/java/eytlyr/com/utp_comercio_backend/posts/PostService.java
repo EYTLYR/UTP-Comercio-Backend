@@ -216,16 +216,27 @@ public class PostService {
 		}
 		return new PostDto(d.id(), d.type(), d.category(), d.categoryLabel(), d.text(), d.authorName(),
 				d.authorInitials(), d.distanceM(), d.createdAt(), d.respondedByMe(), d.status(), true,
-				responses.countByPostId(d.id()), d.authorZoneName());
+				responses.countByPostId(d.id()), d.authorZoneName(), d.lat(), d.lng());
 	}
 
 	private static PostDto toDto(Post p, AppUser viewer, Set<UUID> responded) {
-		Integer distance = viewer.getLat() != null && viewer.getLng() != null
-				? (int) Math.round(GeoUtils.haversineMeters(viewer.getLat(), viewer.getLng(), p.getLat(), p.getLng()))
+		boolean isMine = p.getAuthor().getId().equals(viewer.getId());
+		Double lat = p.getLat();
+		Double lng = p.getLng();
+		// Si el usuario solicitante no es el autor del post y el post está en estado OPEN,
+		// reemplaza las coordenadas reales por las ofuscadas (Geofuzzing 100-300m)
+		if (!isMine && p.getStatus() == PostStatus.OPEN && lat != null && lng != null) {
+			Double[] fuzzed = GeoUtils.geofuzz(lat, lng);
+			lat = fuzzed[0];
+			lng = fuzzed[1];
+		}
+		Integer distance = viewer.getLat() != null && viewer.getLng() != null && lat != null && lng != null
+				? (int) Math.round(GeoUtils.haversineMeters(viewer.getLat(), viewer.getLng(), lat, lng))
 				: null;
 		AppUser a = p.getAuthor();
 		return new PostDto(p.getId(), p.getType(), p.getCategory(), p.getCategory().label(), p.getText(), a.getName(),
 				TextUtils.initials(a.getName()), distance, p.getCreatedAt(), responded.contains(p.getId()),
-				p.getStatus(), a.getId().equals(viewer.getId()), 0, a.getZone() != null ? a.getZone().getName() : null);
+				p.getStatus(), isMine, 0, a.getZone() != null ? a.getZone().getName() : null,
+				lat, lng);
 	}
 }

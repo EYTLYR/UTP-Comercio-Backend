@@ -1,5 +1,7 @@
 package eytlyr.com.utp_comercio_backend.common;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 /** Distancias sobre la Tierra sin PostGIS: recuadro para filtrar en SQL y Haversine para el valor exacto. */
 public final class GeoUtils {
 
@@ -36,6 +38,34 @@ public final class GeoUtils {
 	/** Coordenada aproximada (3 decimales, unos 100 m) para no revelar la dirección exacta. */
 	public static double approx(double coordinate) {
 		return Math.round(coordinate * 1000.0) / 1000.0;
+	}
+
+	/**
+	 * Geofuzzing (ofuscación espacial): aplica un desplazamiento aleatorio (offset)
+	 * de entre 100 y 300 metros a una latitud y longitud para proteger la privacidad del usuario.
+	 *
+	 * @param lat Latitud original
+	 * @param lng Longitud original
+	 * @return double[] con [latitudOfuscada, longitudOfuscada]
+	 */
+	public static double[] geofuzz(double lat, double lng) {
+		double offsetM = 100.0 + ThreadLocalRandom.current().nextDouble() * 200.0;
+		double angle = ThreadLocalRandom.current().nextDouble() * 2.0 * Math.PI;
+		double dLat = (offsetM * Math.cos(angle)) / METERS_PER_DEGREE_LAT;
+		double cosLat = Math.max(Math.cos(Math.toRadians(lat)), 1e-6);
+		double dLng = (offsetM * Math.sin(angle)) / (METERS_PER_DEGREE_LAT * cosLat);
+		return new double[] { lat + dLat, lng + dLng };
+	}
+
+	/**
+	 * Versión null-safe de geofuzz para objetos Double.
+	 */
+	public static Double[] geofuzz(Double lat, Double lng) {
+		if (lat == null || lng == null) {
+			return new Double[] { null, null };
+		}
+		double[] fuzzed = geofuzz(lat.doubleValue(), lng.doubleValue());
+		return new Double[] { fuzzed[0], fuzzed[1] };
 	}
 
 	public record BoundingBox(double minLat, double maxLat, double minLng, double maxLng) {

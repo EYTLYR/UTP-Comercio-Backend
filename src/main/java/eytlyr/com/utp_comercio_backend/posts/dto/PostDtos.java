@@ -27,7 +27,8 @@ public final class PostDtos {
 
 	public record PostDto(UUID id, PostType type, PostCategory category, String categoryLabel, String text,
 			String authorName, String authorInitials, Integer distanceM, OffsetDateTime createdAt,
-			boolean respondedByMe, PostStatus status, boolean mine, long responsesCount, String authorZoneName) {
+			boolean respondedByMe, PostStatus status, boolean mine, long responsesCount, String authorZoneName,
+			Double lat, Double lng) {
 	}
 
 	public record StatusRequest(@NotNull(message = "Falta el estado") PostStatus status) {

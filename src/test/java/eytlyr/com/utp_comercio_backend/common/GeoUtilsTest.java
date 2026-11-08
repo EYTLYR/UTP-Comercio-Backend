@@ -42,4 +42,22 @@ class GeoUtilsTest {
 		assertThat(GeoUtils.approx(-11.979_432)).isEqualTo(-11.979);
 		assertThat(GeoUtils.approx(-77.003_51)).isEqualTo(-77.004);
 	}
+
+	@Test
+	void geofuzzAppliesOffsetBetween100And300Meters() {
+		for (int i = 0; i < 50; i++) {
+			double[] fuzzed = GeoUtils.geofuzz(LAT, LNG);
+			double distance = GeoUtils.haversineMeters(LAT, LNG, fuzzed[0], fuzzed[1]);
+			assertThat(distance).isBetween(99.0, 301.0);
+			assertThat(fuzzed[0]).isNotEqualTo(LAT);
+			assertThat(fuzzed[1]).isNotEqualTo(LNG);
+		}
+	}
+
+	@Test
+	void geofuzzNullSafeHandlesNulls() {
+		Double[] fuzzed = GeoUtils.geofuzz((Double) null, null);
+		assertThat(fuzzed[0]).isNull();
+		assertThat(fuzzed[1]).isNull();
+	}
 }
