@@ -13,7 +13,8 @@ public final class ChatDtos {
 	}
 
 	public record ConversationSummaryDto(UUID id, UUID otherUserId, String otherUserName, String otherInitials,
-			String contextText, String lastMessage, OffsetDateTime lastAt, long unread) {
+			String contextText, String lastMessage, OffsetDateTime lastAt, long unread,
+			String serviceTitle, String serviceCategory, String postType) {
 	}
 
 	/** senderId null = mensaje del sistema. */

@@ -33,7 +33,11 @@ public interface ConversationRepository extends JpaRepository<Conversation, UUID
 	Optional<Conversation> findBetweenWithoutContext(@Param("a") UUID a, @Param("b") UUID b);
 
 	@Query("""
-			select c from Conversation c join fetch c.userA join fetch c.userB
+			select c from Conversation c
+			join fetch c.userA
+			join fetch c.userB
+			left join fetch c.service
+			left join fetch c.post
 			where c.userA.id = :userId or c.userB.id = :userId
 			""")
 	List<Conversation> findAllOf(@Param("userId") UUID userId);

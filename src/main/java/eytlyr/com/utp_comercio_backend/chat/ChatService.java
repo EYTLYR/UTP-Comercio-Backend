@@ -85,11 +85,22 @@ public class ChatService {
 					AppUser other = c.other(userId);
 					var last = messages.findFirstByConversationIdOrderByCreatedAtDesc(c.getId());
 					OffsetDateTime read = c.readAt(userId);
+					String serviceTitle = c.getService() != null ? c.getService().getTitle() : null;
+					String serviceCategory = c.getService() != null && c.getService().getCategory() != null ? c.getService().getCategory().name() : null;
+					String postType = c.getPost() != null && c.getPost().getType() != null ? c.getPost().getType().name() : null;
+					String context = c.getContextText();
+					if ((context == null || context.isBlank()) && serviceTitle != null) {
+						context = "Sobre: " + serviceTitle;
+					} else if ((context == null || context.isBlank()) && c.getPost() != null) {
+						String postText = c.getPost().getText();
+						context = "Publicación: " + (postText != null && postText.length() > 30 ? postText.substring(0, 27) + "..." : postText);
+					}
 					return new ConversationSummaryDto(c.getId(), other.getId(), other.getName(),
-							TextUtils.initials(other.getName()), c.getContextText(),
+							TextUtils.initials(other.getName()), context,
 							last.map(ConversationMessage::getText).orElse(null),
 							last.map(ConversationMessage::getCreatedAt).orElse(c.getCreatedAt()),
-							messages.countUnread(c.getId(), userId, read != null ? read : EPOCH));
+							messages.countUnread(c.getId(), userId, read != null ? read : EPOCH),
+							serviceTitle, serviceCategory, postType);
 				})
 				.sorted(Comparator.comparing(ConversationSummaryDto::lastAt).reversed())
 				.toList();
