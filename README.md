@@ -209,3 +209,9 @@ Si el SMS del código de ingreso falla y hay código fijo (`NEARBY_OTP_DEV_CODE`
 - **SOS:** los avisos salen después del commit y en segundo plano. Si se cae un proveedor, el SOS no falla.
 
 Las decisiones de diseño de cada fase están en [docs/DECISIONES.md](docs/DECISIONES.md).
+
+### Error de conexión SQLSTATE 08001
+
+Indica que no se pudo establecer la conexión, no que haya una migración SQL inválida. Comprueba el último `Caused by` para distinguir DNS (`UnknownHostException`), puerto inaccesible o TLS. La app reintenta la conexión de Flyway hasta cinco veces, con intervalo máximo de cinco segundos y límite de diez segundos por conexión TCP. El pool también dispone de un margen de inicialización de sesenta segundos. Puedes ajustar `DB_CONNECT_RETRIES` y `DB_CONNECT_RETRY_INTERVAL` en `.env`. Esto tolera fallos transitorios; no sustituye una URL válida ni una conexión de red disponible. Mantén `sslmode` y la validación de migraciones habilitados.
+
+Las pruebas de integración actuales requieren PostgreSQL con PostGIS (Docker o `NEARBY_PG_HOME`); un fallo de `LocalPostgis` es independiente de la conexión a la base remota.
