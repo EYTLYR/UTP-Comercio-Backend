@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -21,6 +22,7 @@ import eytlyr.com.utp_comercio_backend.TestcontainersConfiguration;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -106,5 +108,21 @@ class ServiceFlowTest {
 		mvc.perform(delete(url + "/me").header("Authorization", maria.bearer()))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.endorsementCount").value(48));
+	}
+
+	@Test
+	void serviceIsPublishedWhereTheNeighborIsNow() throws Exception {
+		Session maria = TestAuth.login(mvc, "987654321");
+		Double homeLat = jdbc.queryForObject("select lat from app_user where phone = '987654321'", Double.class);
+		Double homeLng = jdbc.queryForObject("select lng from app_user where phone = '987654321'", Double.class);
+		String body = "{\"title\":\"Gasfitero a domicilio\",\"category\":\"PLUMBING\","
+				+ "\"availableInEmergency\":true,\"lat\":" + (homeLat + 0.01) + ",\"lng\":" + homeLng + "}";
+		String created = mvc.perform(post("/api/v1/services").header("Authorization", maria.bearer())
+				.contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isCreated())
+				// ~1,1 km al norte de su casa: la distancia sale de donde publicó, no de la casa.
+				.andExpect(jsonPath("$.distanceM", greaterThan(900)))
+				.andReturn().getResponse().getContentAsString();
+		jdbc.update("delete from neighbor_service where id = ?::uuid", (String) JsonPath.read(created, "$.id"));
 	}
 }

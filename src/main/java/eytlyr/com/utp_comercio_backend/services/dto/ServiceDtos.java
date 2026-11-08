@@ -37,7 +37,10 @@ public final class ServiceDtos {
 			@Size(max = 1000, message = "La descripción no debe pasar de 1000 caracteres") String description,
 			@Size(max = 80) String priceText,
 			@Size(max = 80) String scheduleText,
-			boolean availableInEmergency) {
+			boolean availableInEmergency,
+			// Dónde está el vecino al publicar. Si no llega, se usa su casa.
+			Double lat,
+			Double lng) {
 	}
 
 	public record ReviewRequest(

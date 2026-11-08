@@ -119,10 +119,16 @@ public class ServiceCatalogService {
 	@Transactional
 	public ServiceDetailDto create(UUID userId, ServiceRequest req) {
 		AppUser me = user(userId);
-		if (me.getLat() == null || me.getLng() == null) {
+		boolean here = req.lat() != null && req.lng() != null && Math.abs(req.lat()) <= 90
+				&& Math.abs(req.lng()) <= 180;
+		if (!here && (me.getLat() == null || me.getLng() == null)) {
 			throw new BusinessRuleException(LOCATION_REQUIRED, "Primero guarda tu ubicación para ofrecer tu oficio.");
 		}
-		NeighborService s = NeighborService.builder().owner(me).lat(me.getLat()).lng(me.getLng()).build();
+		NeighborService s = NeighborService.builder()
+				.owner(me)
+				.lat(here ? req.lat() : me.getLat())
+				.lng(here ? req.lng() : me.getLng())
+				.build();
 		apply(s, req);
 		services.save(s);
 		events.publishEvent(new ContentCreatedEvent(SourceType.SERVICE, s.getId()));
