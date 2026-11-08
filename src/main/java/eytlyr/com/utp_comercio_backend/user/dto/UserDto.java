@@ -15,7 +15,7 @@ import eytlyr.com.utp_comercio_backend.zone.ZoneMode;
  * Nunca incluye la dirección ni la ficha médica.
  */
 public record UserDto(UUID id, String name, String phone, Role role, boolean verified, ZoneSummary zone,
-		boolean aiConsent, ZoneMode effectiveMode) {
+		boolean aiConsent, ZoneMode effectiveMode, String photoUrl) {
 
 	public record ZoneSummary(UUID id, String name, ZoneMode mode, ModeSource modeSource, WeatherLevel weatherLevel) {
 
@@ -28,7 +28,7 @@ public record UserDto(UUID id, String name, String phone, Role role, boolean ver
 	public static UserDto from(AppUser u) {
 		Zone z = u.getZone();
 		return new UserDto(u.getId(), u.getName(), u.getPhone(), u.getRole(), u.isVerified(),
-				z != null ? ZoneSummary.from(z) : null, u.isAiConsent(), effectiveMode(u));
+				z != null ? ZoneSummary.from(z) : null, u.isAiConsent(), effectiveMode(u), u.getPhotoUrl());
 	}
 
 	/**

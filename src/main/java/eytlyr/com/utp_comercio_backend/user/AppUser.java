@@ -71,6 +71,10 @@ public class AppUser extends BaseEntity {
 	@Column(name = "address_text", length = 200)
 	private String addressText;
 
+	/** Foto de perfil: URL relativa (/files/...). Null muestra las iniciales. */
+	@Column(name = "photo_url", length = 300)
+	private String photoUrl;
+
 	@Column(name = "ai_consent", nullable = false)
 	@Builder.Default
 	private boolean aiConsent = false;

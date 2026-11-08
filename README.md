@@ -123,6 +123,16 @@ Los usuarios de ejemplo (María Quispe `987654321`, Brigada Z3 `999000111`, Muni
 - **DELEGATE:** delegado; cambia el modo de la zona.
 - **ADMIN:** todo lo anterior, más reindexar la IA.
 
+**Ser brigadista desde la app** (además de `NEARBY_BRIGADE_PHONES`):
+- **Pedir el rol:** el vecino lo pide con `POST /api/v1/me/brigade-request` (`{"skills": "..."}`) y ve el estado con `GET /api/v1/me/brigade-request`. Los estados son `NONE`, `PENDING`, `APPROVED` y `REJECTED`.
+- **Aprobar o rechazar:** la Municipalidad (ADMIN o DELEGATE) lista las pendientes con `GET /api/v1/admin/brigade-requests` y responde con `POST /api/v1/admin/brigade-requests/{id}/approve` o `/reject`. Al aprobar, el vecino pasa a BRIGADIST.
+- **Cambiar un rol a mano:** solo ADMIN. Primero busca al vecino con `GET /api/v1/admin/users?phone=9…` y luego cambia su rol con `PUT /api/v1/admin/users/{id}/role`. Los roles posibles son NEIGHBOR, BRIGADIST y DELEGATE. El rol ADMIN solo se da por `.env`.
+- **Cuándo rige el nuevo rol:** el perfil (`GET /me`) lo muestra de inmediato. Para los permisos del servidor rige al renovar el token.
+
+**Foto de perfil:** se sube con `PUT /api/v1/me/photo` (multipart, campo `photo`, JPG o PNG de hasta 5 MB) y se quita con `DELETE /api/v1/me/photo`. Se guarda donde se guardan las fotos de riesgo, y `photoUrl` aparece en `GET /me`.
+
+**Prevención El Niño:** la Municipalidad lo activa con `POST /api/v1/admin/zones/{id}/mode` (`{"mode":"PREVENTION"}`) y vuelve a la normalidad con `NORMAL`. Cada vecino puede volver al modo normal solo en su app con `POST /api/v1/me/mode` (`{"action":"DISMISS"}`). Esto sirve para cualquier modo distinto de NORMAL.
+
 ## Guion de la demo
 
 [requests/demo.http](requests/demo.http) reproduce todo el flujo con los datos de ejemplo, es decir, contra `./mvnw spring-boot:test-run` (con `NEARBY_OTP_DEV_CODE=123456`):

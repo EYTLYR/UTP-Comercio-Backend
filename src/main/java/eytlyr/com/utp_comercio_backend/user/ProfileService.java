@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import eytlyr.com.utp_comercio_backend.ai.Capability;
 import eytlyr.com.utp_comercio_backend.ai.CapabilityRepository;
@@ -25,6 +26,8 @@ import eytlyr.com.utp_comercio_backend.emergency.ReportStatus;
 import eytlyr.com.utp_comercio_backend.emergency.VulnerableReportRepository;
 import eytlyr.com.utp_comercio_backend.sos.SosAlertRepository;
 import eytlyr.com.utp_comercio_backend.sos.SosStatus;
+import eytlyr.com.utp_comercio_backend.storage.PhotoUpload;
+import eytlyr.com.utp_comercio_backend.storage.StorageService;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.AiLearningDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.BrigadeMedicalCardDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.DeviceTokenRequest;
@@ -71,10 +74,12 @@ public class ProfileService {
 
 	private final VulnerableReportRepository vulnerableReports;
 
+	private final StorageService storage;
+
 	public ProfileService(UserService userService, ZoneRepository zones, TrustedContactRepository contacts,
 			MedicalCardRepository medicalCards, DeviceTokenRepository deviceTokens, PrepChecklistItemRepository checklist,
 			CapabilityRepository capabilities, SosAlertRepository sosAlerts,
-			VulnerableReportRepository vulnerableReports) {
+			VulnerableReportRepository vulnerableReports, StorageService storage) {
 		this.userService = userService;
 		this.zones = zones;
 		this.contacts = contacts;
@@ -84,6 +89,7 @@ public class ProfileService {
 		this.capabilities = capabilities;
 		this.sosAlerts = sosAlerts;
 		this.vulnerableReports = vulnerableReports;
+		this.storage = storage;
 	}
 
 	// ---------------------------------------------------------------- nombre y ubicación
@@ -92,6 +98,23 @@ public class ProfileService {
 	public UserDto updateName(UUID userId, String name) {
 		AppUser user = userService.get(userId);
 		user.setName(name.trim());
+		return UserDto.from(user);
+	}
+
+	/** Foto de perfil: JPG o PNG de hasta 5 MB, en el mismo almacenamiento que las fotos de riesgo. */
+	@Transactional
+	public UserDto updatePhoto(UUID userId, MultipartFile photo) {
+		byte[] bytes = PhotoUpload.read(photo);
+		AppUser user = userService.get(userId);
+		user.setPhotoUrl(storage.store(bytes, photo.getContentType()));
+		return UserDto.from(user);
+	}
+
+	/** Quita la foto: la app vuelve a mostrar las iniciales. */
+	@Transactional
+	public UserDto deletePhoto(UUID userId) {
+		AppUser user = userService.get(userId);
+		user.setPhotoUrl(null);
 		return UserDto.from(user);
 	}
 

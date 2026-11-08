@@ -9,14 +9,18 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import eytlyr.com.utp_comercio_backend.auth.CurrentUser;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.AiLearningDto;
@@ -28,6 +32,8 @@ import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.SettingsRequest;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.TrustedContactDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.UpdateNameRequest;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.UserLocationDto;
+import eytlyr.com.utp_comercio_backend.user.dto.RoleDtos.BrigadeRequestCreate;
+import eytlyr.com.utp_comercio_backend.user.dto.RoleDtos.BrigadeRequestDto;
 import eytlyr.com.utp_comercio_backend.user.dto.UserDto;
 
 /** Perfil propio: siempre del usuario del token, nunca de otro. */
@@ -42,10 +48,13 @@ public class MeController {
 
 	private final CurrentUser currentUser;
 
-	public MeController(UserService users, ProfileService profile, CurrentUser currentUser) {
+	private final RoleService roles;
+
+	public MeController(UserService users, ProfileService profile, CurrentUser currentUser, RoleService roles) {
 		this.users = users;
 		this.profile = profile;
 		this.currentUser = currentUser;
+		this.roles = roles;
 	}
 
 	@GetMapping
@@ -58,6 +67,30 @@ public class MeController {
 	@Operation(summary = "Cambiar mi nombre (2 a 60 caracteres)")
 	public UserDto updateName(@Valid @RequestBody UpdateNameRequest body) {
 		return profile.updateName(currentUser.id(), body.name());
+	}
+
+	@PutMapping(path = "/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	@Operation(summary = "Subir mi foto de perfil (multipart: photo jpg/png máx. 5 MB)")
+	public UserDto updatePhoto(@RequestPart("photo") MultipartFile photo) {
+		return profile.updatePhoto(currentUser.id(), photo);
+	}
+
+	@DeleteMapping("/photo")
+	@Operation(summary = "Quitar mi foto de perfil (vuelven las iniciales)")
+	public UserDto deletePhoto() {
+		return profile.deletePhoto(currentUser.id());
+	}
+
+	@PostMapping("/brigade-request")
+	@Operation(summary = "Pedir ser brigadista (devuelve la pendiente si ya existe; 409 si ya eres brigadista)")
+	public BrigadeRequestDto requestBrigade(@Valid @RequestBody(required = false) BrigadeRequestCreate body) {
+		return roles.request(currentUser.id(), body != null ? body.skills() : null);
+	}
+
+	@GetMapping("/brigade-request")
+	@Operation(summary = "Estado de mi solicitud de brigadista: NONE, PENDING, APPROVED o REJECTED")
+	public BrigadeRequestDto myBrigadeRequest() {
+		return roles.myRequest(currentUser.id());
 	}
 
 	@GetMapping("/location")
