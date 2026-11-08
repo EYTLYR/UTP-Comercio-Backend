@@ -185,7 +185,7 @@ public class MapService {
 			}
 		}
 		return pinMap.values().stream()
-				.filter(p -> p.lat() == null || p.lng() == null || GeoUtils.haversineMeters(refLat, refLng, p.lat(), p.lng()) <= effectiveRadius)
+				.filter(p -> GeoUtils.haversineMeters(refLat, refLng, p.lat(), p.lng()) <= effectiveRadius)
 				.toList();
 	}
 
@@ -193,8 +193,6 @@ public class MapService {
 		safePoints.findByZoneIdOrderByName(zoneId).forEach(p -> pinMap.put(p.getId(), new Pin(p.getId(), "safe", p.getLat(), p.getLng(),
 				p.getType() == SafePointType.SHELTER ? "night_shelter" : "flag", p.getName(),
 				p.getCapacity() != null ? p.getOccupied() + " de " + p.getCapacity() + " cupos" : "Punto de reunión",
-				"safe_point", p.getId())));
-	}
 				"safe_point", p.getId())));
 	}
 
