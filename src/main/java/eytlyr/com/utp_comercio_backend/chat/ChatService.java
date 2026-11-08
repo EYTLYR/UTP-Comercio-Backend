@@ -94,6 +94,16 @@ public class ChatService {
 					} else if ((context == null || context.isBlank()) && c.getPost() != null) {
 						String postText = c.getPost().getText();
 						context = "Publicación: " + (postText != null && postText.length() > 30 ? postText.substring(0, 27) + "..." : postText);
+					} else if ((context == null || context.isBlank()) && last.isPresent()) {
+						String lastText = last.get().getText();
+						if (lastText != null) {
+							var matcher = java.util.regex.Pattern.compile("(?:para:|interesa:)\\s*[«“'\"(]([^»”'\")]+)[»”'\")]", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(lastText);
+							if (matcher.find()) {
+								context = "Favor: " + matcher.group(1).trim();
+							} else if (lastText.toLowerCase().startsWith("aceptaste la ayuda de")) {
+								context = "Ayuda mutua";
+							}
+						}
 					}
 					return new ConversationSummaryDto(c.getId(), other.getId(), other.getName(),
 							TextUtils.initials(other.getName()), context,
