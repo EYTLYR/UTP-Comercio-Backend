@@ -75,6 +75,8 @@ public class PreventionService {
 
 	private final StorageService storage;
 
+	private final AsyncRiskAnalysisService asyncAnalyzer;
+
 	private final TextClassifier classifier;
 
 	private final SosCodec codec;
@@ -93,8 +95,8 @@ public class PreventionService {
 
 	public PreventionService(RiskReportRepository reports, RiskZoneRepository riskZones,
 			MitigationMatchRepository matches, RiskClusteringService clustering, PhotoRiskAnalyzer analyzer,
-			StorageService storage, TextClassifier classifier, SosCodec codec, StreetCodeRepository streets,
-			AppUserRepository users, ResourceListingRepository listings, ChatService chat,
+			StorageService storage, AsyncRiskAnalysisService asyncAnalyzer, TextClassifier classifier, SosCodec codec,
+			StreetCodeRepository streets, AppUserRepository users, ResourceListingRepository listings, ChatService chat,
 			ApplicationEventPublisher events, Clock clock) {
 		this.reports = reports;
 		this.riskZones = riskZones;
@@ -102,6 +104,7 @@ public class PreventionService {
 		this.clustering = clustering;
 		this.analyzer = analyzer;
 		this.storage = storage;
+		this.asyncAnalyzer = asyncAnalyzer;
 		this.classifier = classifier;
 		this.codec = codec;
 		this.streets = streets;
@@ -135,19 +138,19 @@ public class PreventionService {
 		UUID zoneId = me.getZone().getId();
 		List<StreetCode> zoneStreets = streets.findByZoneId(zoneId);
 
-		// Categoría: la elegida, o la que propone la foto, o la del texto (micrófono inteligente).
+		// Categoría: la elegida manualmente por el usuario, o la del texto (micrófono inteligente).
 		RiskCategory category = req.category();
 		if (category == null && req.text() != null && !req.text().isBlank()) {
 			String proposed = classifier.classify(req.text(), ZoneMode.PREVENTION).category();
 			category = proposed != null && !"null".equals(proposed) ? RiskCategory.valueOf(proposed) : null;
 		}
-		PhotoAnalysis analysis = null;
 		String photoUrl = null;
+		byte[] photoBytes = null;
+		String photoContentType = null;
 		if (photo != null && !photo.isEmpty()) {
-			byte[] bytes = validPhoto(photo);
-			photoUrl = storage.store(bytes, photo.getContentType());
-			analysis = analyzer.analyze(bytes, photo.getContentType(), category);
-			category = analysis.category();
+			photoBytes = validPhoto(photo);
+			photoContentType = photo.getContentType();
+			photoUrl = storage.store(photoBytes, photoContentType);
 		}
 		if (category == null) {
 			category = RiskCategory.STREET_FLOODING;
@@ -161,19 +164,23 @@ public class PreventionService {
 				.category(category)
 				.text(req.text() != null && !req.text().isBlank() ? req.text().trim() : category.label())
 				.photoUrl(photoUrl)
-				.photoAnalysis(analysis != null ? analysis.summary() : null)
-				.severityHint(analysis != null ? analysis.severity() : null)
+				.photoAnalysis(photoBytes != null ? "PENDING_AI_VERIFICATION" : null)
+				.severityHint(null)
 				.lat(point[0])
 				.lng(point[1])
 				.addressText(req.addressText())
 				.clientId(req.clientId())
 				.build());
 
+		if (photoBytes != null) {
+			asyncAnalyzer.analyzePhotoAsync(r.getId(), photoBytes, photoContentType, category, zoneId);
+		}
+
 		Recompute radar = clustering.recompute(zoneId);
 		RiskZone rz = r.getRiskZone();
 		boolean escalated = rz != null && radar.escalated().contains(rz.getId());
-		PhotoAnalysisDto photoDto = analysis == null ? null
-				: new PhotoAnalysisDto(analysis.category(), analysis.waterLevelCm(), analysis.severity(), analysis.summary());
+		PhotoAnalysisDto photoDto = photoBytes == null ? null
+				: new PhotoAnalysisDto(category, null, 0.0, "PENDING_AI_VERIFICATION");
 		return new Created<>(new RiskReportCreated(toDto(r), photoDto, rz != null ? zoneDto(rz) : null, escalated), true);
 	}
 
