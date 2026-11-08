@@ -104,30 +104,49 @@ Cubren la lógica clave:
 
 ## Usuarios y roles
 
-La base arranca **sin usuarios ni publicaciones**: todo lo crean los vecinos que se registran con su celular. Solo existen los datos base que necesita la app (`BaseDataInitializer`): la Zona 3 · Las Flores, sus calles (para los códigos SMS) y los puntos seguros.
+La base arranca **vacía**: sin usuarios, sin publicaciones y sin zonas. Todo lo crean los vecinos y las Municipalidades.
+
+**Zonas:**
+- **Al guardar la casa** (`PUT /api/v1/me/location`), el vecino queda en la zona que cubre su casa. Si ninguna la cubre, se crea la zona de su barrio, con un radio de 1,2 km. La app manda `zoneName` (urbanización o barrio) y `district`, que saca de OpenStreetMap.
+- **Desde su panel**, la Municipalidad crea zonas de su distrito con `POST /api/v1/municipality/zones` (`name`, `lat`, `lng`, `radiusM`). El ADMIN también puede, indicando `district`.
+- **Para explorarlas** en el mapa: `GET /api/v1/zones`.
+- **Zona de ejemplo antigua:** las bases que aún tienen la «Zona 3 · Las Flores» la pierden sola. Cada vecino que estaba en ella pasa a la zona de su barrio la próxima vez que abre la app, y se lleva lo que publicó. La zona se borra en el siguiente arranque, cuando ya no la usa nadie.
+
+**Perfil:** `GET /api/v1/me/stats` devuelve los favores que hice, los vistos buenos que di y los favores que recibí.
 
 El código SMS es **aleatorio** en cada pedido: llega por SMS (`NEARBY_SMS_PROVIDER=gateway`) o, sin SMS reales, aparece en el log del backend (`[SMS → 987 *** 321] Tu código Nearby es …`). Para una demo sin SMS se puede fijar con `NEARBY_OTP_DEV_CODE=123456` en `.env`; entonces `/auth/otp/request` lo devuelve en `devCode`.
 
-Todos se registran como vecinos. La Municipalidad y la brigada se definen por celular en `.env` y se aplican al ingresar:
+Todos se registran como vecinos. Los roles no se configuran a mano: salen de la app.
 
 ```
-NEARBY_ADMIN_PHONES=987654321
-NEARBY_BRIGADE_PHONES=912345678,998877665
+NEARBY_ADMIN_PHONES=987654321   # administrador de la plataforma (quien aprueba Municipalidades)
+NEARBY_BRIGADE_PHONES=          # opcional, solo para demos
 ```
+
+`NEARBY_ADMIN_PHONES` es lo único fijo: alguien de confianza tiene que aprobar a las Municipalidades, porque si no cualquiera podría registrarse como Municipalidad y activar una emergencia en un distrito.
 
 Los usuarios de ejemplo (María Quispe `987654321`, Brigada Z3 `999000111`, Municipalidad `999000000`…) solo existen en las pruebas y en `./mvnw spring-boot:test-run` (`src/test/.../seed/DemoDataSeeder.java`).
 
 **Roles:**
 - **NEIGHBOR:** vecino.
 - **BRIGADIST:** ve direcciones exactas y fichas médicas durante un SOS, y genera planes de rescate.
-- **DELEGATE:** delegado; cambia el modo de la zona.
-- **ADMIN:** todo lo anterior, más reindexar la IA.
+- **DELEGATE:** delegado de una zona; cambia el modo de su zona y aprueba brigadistas de su zona.
+- **MUNICIPALITY:** equipo de una Municipalidad aprobada. Administra las zonas de su distrito: modo de la zona, brigadistas, roles de los vecinos y su propio equipo.
+- **ADMIN:** administrador de la plataforma Nearby. Aprueba Municipalidades, ve todas las zonas y puede reindexar la IA.
 
-**Ser brigadista desde la app** (además de `NEARBY_BRIGADE_PHONES`):
+**Registro de Municipalidades:**
+1. **Registrar:** el responsable ingresa con su celular y envía `POST /api/v1/municipalities` con nombre, distrito, RUC (11 dígitos, empieza con 20), responsable, cargo y correo institucional. Queda `PENDING`. Ve el estado con `GET /api/v1/municipalities/mine` (`NONE`, `PENDING`, `APPROVED` o `REJECTED`). `GET /api/v1/municipalities/districts` sugiere los distritos que ya tienen zonas. Un RUC y un distrito solo pueden tener un registro vigente.
+2. **Aprobar:** el ADMIN lista los registros con `GET /api/v1/admin/municipalities` (pendientes primero) y responde con `POST /api/v1/admin/municipalities/{id}/approve` o `/reject` (`{"reason": "..."}`). Al aprobar, quien la registró pasa a MUNICIPALITY.
+3. **Panel de la Municipalidad:**
+   - `GET /api/v1/municipality/zones`: zonas de su distrito (el distrito se compara sin tildes ni mayúsculas con el de la zona).
+   - `POST /api/v1/admin/zones/{id}/mode`: cambia el modo de una zona. Si la zona no es de su distrito responde 403.
+   - **Equipo:** `GET /api/v1/municipality/staff`, `POST /api/v1/municipality/staff` (`{"phone": "9…"}`, la persona debe haber ingresado antes) y `DELETE /api/v1/municipality/staff/{userId}` (vuelve a ser vecino).
+
+**Brigadistas:**
 - **Pedir el rol:** el vecino lo pide con `POST /api/v1/me/brigade-request` (`{"skills": "..."}`) y ve el estado con `GET /api/v1/me/brigade-request`. Los estados son `NONE`, `PENDING`, `APPROVED` y `REJECTED`.
-- **Aprobar o rechazar:** la Municipalidad (ADMIN o DELEGATE) lista las pendientes con `GET /api/v1/admin/brigade-requests` y responde con `POST /api/v1/admin/brigade-requests/{id}/approve` o `/reject`. Al aprobar, el vecino pasa a BRIGADIST.
-- **Cambiar un rol a mano:** solo ADMIN. Primero busca al vecino con `GET /api/v1/admin/users?phone=9…` y luego cambia su rol con `PUT /api/v1/admin/users/{id}/role`. Los roles posibles son NEIGHBOR, BRIGADIST y DELEGATE. El rol ADMIN solo se da por `.env`.
-- **Cuándo rige el nuevo rol:** el perfil (`GET /me`) lo muestra de inmediato. Para los permisos del servidor rige al renovar el token.
+- **Aprobar o rechazar:** la Municipalidad de su distrito (o el delegado de su zona) lista las pendientes con `GET /api/v1/admin/brigade-requests` y responde con `POST /api/v1/admin/brigade-requests/{id}/approve` o `/reject`. Cada quien solo ve las de su jurisdicción. Al aprobar, el vecino pasa a BRIGADIST.
+- **Cambiar un rol a mano:** la Municipalidad (solo vecinos de su distrito) o el ADMIN. Primero busca al vecino con `GET /api/v1/admin/users?phone=9…` y luego cambia su rol con `PUT /api/v1/admin/users/{id}/role`. Los roles posibles son NEIGHBOR, BRIGADIST y DELEGATE.
+- **Cuándo rige el nuevo rol:** el perfil (`GET /me`) lo muestra de inmediato. Para los permisos del servidor rige al renovar el token; la app lo renueva sola al notar el cambio.
 
 **Foto de perfil:** se sube con `PUT /api/v1/me/photo` (multipart, campo `photo`, JPG o PNG de hasta 5 MB) y se quita con `DELETE /api/v1/me/photo`. Se guarda donde se guardan las fotos de riesgo, y `photoUrl` aparece en `GET /me`.
 
@@ -190,7 +209,8 @@ Si el SMS del código de ingreso falla y hay código fijo (`NEARBY_OTP_DEV_CODE`
 | `NEARBY_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `NEARBY_AI_MODEL` | IA con Claude (`anthropic`) | `rules` / — / `claude-haiku-5-5` |
 | `GEMINI_API_KEY`, `NEARBY_GEMINI_MODEL`, `NEARBY_GEMINI_TIMEOUT_SECONDS` | IA con Gemini (`NEARBY_AI_PROVIDER=gemini`) | — / `gemini-2.5-flash` / `8` |
 | `NEARBY_CORS_ORIGINS` | Orígenes CORS (patrones separados por coma) | `http://localhost:*` |
-| `NEARBY_ADMIN_PHONES`, `NEARBY_BRIGADE_PHONES` | Celulares (separados por coma) que entran como Municipalidad (ADMIN) o brigada (BRIGADIST) | — |
+| `NEARBY_ADMIN_PHONES` | Celulares (separados por coma) del administrador de la plataforma, que aprueba Municipalidades | — |
+| `NEARBY_BRIGADE_PHONES` | Opcional, para demos: celulares que entran como brigada. Solo sube a un vecino, nunca baja un rol | — |
 | `NEARBY_OTP_DEV_CODE` | Código SMS fijo para pruebas sin SMS. Solo funciona con el perfil `dev` o `local`; con `prod` se ignora | — (aleatorio) |
 | `NEARBY_SWAGGER_ENABLED` | Swagger en prod | `false` |
 | `DB_URL`, `DB_USER`, `DB_PASSWORD` | Base de datos (perfiles `local` y `prod`); en Neon, el host con `-pooler` | — |

@@ -286,7 +286,7 @@ public class EmergencyService {
 	// ---------------------------------------------------------------- privacidad y utilidades
 
 	public static boolean isBrigade(AppUser u) {
-		return u.getRole() == Role.BRIGADIST || u.getRole() == Role.ADMIN;
+		return u.getRole() == Role.BRIGADIST || u.getRole() == Role.MUNICIPALITY || u.getRole() == Role.ADMIN;
 	}
 
 	/** "Mz. C lote 12" → "Mz. C"; "Jr. Los Pinos 340" → "Jr. Los Pinos". */

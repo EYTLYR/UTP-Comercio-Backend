@@ -11,15 +11,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import eytlyr.com.utp_comercio_backend.common.BusinessRuleException;
 import eytlyr.com.utp_comercio_backend.common.ConflictException;
+import eytlyr.com.utp_comercio_backend.common.ForbiddenException;
 import eytlyr.com.utp_comercio_backend.common.NotFoundException;
+import eytlyr.com.utp_comercio_backend.municipality.Jurisdiction;
 import eytlyr.com.utp_comercio_backend.user.BrigadeRequest.Status;
 import eytlyr.com.utp_comercio_backend.user.dto.RoleDtos.BrigadeRequestDto;
 import eytlyr.com.utp_comercio_backend.user.dto.RoleDtos.UserSummaryDto;
 
 /**
- * Roles del barrio: un vecino pide ser brigadista y la Municipalidad lo aprueba o rechaza. El administrador
- * también puede cambiar el rol de un vecino. Los celulares de NEARBY_ADMIN_PHONES / NEARBY_BRIGADE_PHONES siguen
- * recibiendo su rol al ingresar.
+ * Roles del barrio: un vecino pide ser brigadista y la Municipalidad de su distrito (o el delegado de su zona) lo
+ * aprueba o rechaza. La Municipalidad también puede cambiar el rol de los vecinos de su distrito. Cada quien solo
+ * ve y decide sobre su jurisdicción ({@link Jurisdiction}); el administrador de la plataforma, sobre todo.
  */
 @Service
 public class RoleService {
@@ -30,7 +32,9 @@ public class RoleService {
 
 	public static final String ROLE_NOT_ALLOWED = "ROLE_NOT_ALLOWED";
 
-	/** Roles que se pueden asignar desde la app. ADMIN solo por configuración (NEARBY_ADMIN_PHONES). */
+	public static final String OUT_OF_JURISDICTION = "OUT_OF_JURISDICTION";
+
+	/** Roles que se asignan a vecinos. MUNICIPALITY se da al aprobar o en «Mi equipo»; ADMIN solo por configuración. */
 	static final Set<Role> ASSIGNABLE = Set.of(Role.NEIGHBOR, Role.BRIGADIST, Role.DELEGATE);
 
 	private final AppUserRepository users;
@@ -71,9 +75,13 @@ public class RoleService {
 
 	// ---------------------------------------------------------------- Municipalidad
 
+	/** Pendientes de mi jurisdicción. */
 	@Transactional(readOnly = true)
-	public List<BrigadeRequestDto> pending() {
-		return requests.findTop100ByStatusOrderByCreatedAtAsc(Status.PENDING).stream().map(BrigadeRequestDto::from)
+	public List<BrigadeRequestDto> pending(UUID actorId) {
+		AppUser actor = user(actorId);
+		return requests.findTop100ByStatusOrderByCreatedAtAsc(Status.PENDING).stream()
+				.filter(r -> Jurisdiction.covers(actor, r.getUser().getZone()))
+				.map(BrigadeRequestDto::from)
 				.toList();
 	}
 
@@ -81,6 +89,7 @@ public class RoleService {
 	@Transactional
 	public BrigadeRequestDto decide(UUID adminId, UUID requestId, boolean approve) {
 		BrigadeRequest r = requests.findById(requestId).orElseThrow(() -> NotFoundException.of("la solicitud"));
+		requireJurisdiction(user(adminId), r.getUser());
 		if (r.getStatus() != Status.PENDING) {
 			throw new ConflictException(REQUEST_DECIDED, "Esta solicitud ya fue respondida.");
 		}
@@ -103,7 +112,7 @@ public class RoleService {
 				.orElseThrow(() -> NotFoundException.of("un vecino con ese celular"));
 	}
 
-	/** El administrador cambia el rol de otro vecino (nunca el propio, y nunca a ADMIN desde la app). */
+	/** La Municipalidad cambia el rol de un vecino de su distrito (nunca el propio, ni a otra Municipalidad). */
 	@Transactional
 	public UserSummaryDto changeRole(UUID adminId, UUID userId, Role role) {
 		if (!ASSIGNABLE.contains(role)) {
@@ -113,11 +122,19 @@ public class RoleService {
 			throw new BusinessRuleException(ROLE_NOT_ALLOWED, "No puedes cambiar tu propio rol.");
 		}
 		AppUser user = user(userId);
-		if (user.getRole() == Role.ADMIN) {
-			throw new BusinessRuleException(ROLE_NOT_ALLOWED, "El rol de la Municipalidad se configura en el servidor.");
+		if (user.getRole() == Role.ADMIN || user.getRole() == Role.MUNICIPALITY) {
+			throw new BusinessRuleException(ROLE_NOT_ALLOWED,
+					"El equipo de una Municipalidad se administra en «Mi equipo».");
 		}
+		requireJurisdiction(user(adminId), user);
 		user.setRole(role);
 		return UserSummaryDto.from(user);
+	}
+
+	private static void requireJurisdiction(AppUser actor, AppUser neighbor) {
+		if (!Jurisdiction.covers(actor, neighbor.getZone())) {
+			throw new ForbiddenException(OUT_OF_JURISDICTION, "Este vecino no vive en tu distrito o zona.");
+		}
 	}
 
 	private AppUser user(UUID id) {

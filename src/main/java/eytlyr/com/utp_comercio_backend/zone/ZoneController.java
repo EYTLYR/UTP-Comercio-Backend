@@ -33,6 +33,12 @@ public class ZoneController {
 		this.currentUser = currentUser;
 	}
 
+	@GetMapping("/api/v1/zones")
+	@Operation(summary = "Todas las zonas de Nearby, para explorarlas en el mapa")
+	public java.util.List<ZoneDto> all() {
+		return zones.all();
+	}
+
 	@GetMapping("/api/v1/zones/current")
 	@Operation(summary = "Mi zona y su modo actual")
 	public ZoneDto current() {
@@ -40,10 +46,10 @@ public class ZoneController {
 	}
 
 	@PostMapping("/api/v1/admin/zones/{id}/mode")
-	@PreAuthorize("hasAnyRole('ADMIN', 'DELEGATE')")
-	@Operation(summary = "Municipalidad: cambiar el modo de la zona y avisar a los vecinos")
+	@PreAuthorize("hasAnyRole('ADMIN', 'MUNICIPALITY', 'DELEGATE')")
+	@Operation(summary = "Municipalidad: cambiar el modo de una zona de su distrito y avisar a los vecinos")
 	public ZoneDto setMode(@PathVariable UUID id, @Valid @RequestBody ZoneModeRequest body) {
-		return zones.setMode(id, body);
+		return zones.setMode(currentUser.id(), id, body);
 	}
 
 	@PostMapping("/api/v1/me/mode")

@@ -100,7 +100,7 @@ nearby:
     prefix: ${NEARBY_S3_PREFIX:risk-photos/}
   cors:
     allowed-origin-patterns: ${NEARBY_CORS_ORIGINS:}
-  # Municipalidad (ADMIN) y brigada (BRIGADIST) por celular, separados por coma. Se aplican al ingresar.
+  # Administrador de la plataforma (aprueba Municipalidades registradas desde la app). Brigada: opcional, demos.
   roles:
     admin-phones: ${NEARBY_ADMIN_PHONES:}
     brigade-phones: ${NEARBY_BRIGADE_PHONES:}

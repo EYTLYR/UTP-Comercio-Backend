@@ -32,13 +32,17 @@ import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.AiLearningDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.BrigadeMedicalCardDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.DeviceTokenRequest;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.LocationRequest;
+import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.MeStatsDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.MedicalCardDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.PrepChecklistItemDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.TrustedContactDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.UserLocationDto;
 import eytlyr.com.utp_comercio_backend.user.dto.UserDto;
 import eytlyr.com.utp_comercio_backend.zone.Zone;
+import eytlyr.com.utp_comercio_backend.zone.ZoneFactory;
 import eytlyr.com.utp_comercio_backend.zone.ZoneRepository;
+import eytlyr.com.utp_comercio_backend.seed.LegacySeedZoneCleaner;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /** Perfil del vecino (FASE 4): nombre, ubicación y zona, contactos, ficha médica, ajustes de IA y checklist. */
 @Service
@@ -60,6 +64,10 @@ public class ProfileService {
 
 	private final ZoneRepository zones;
 
+	private final ZoneFactory zoneFactory;
+
+	private final JdbcTemplate jdbc;
+
 	private final TrustedContactRepository contacts;
 
 	private final MedicalCardRepository medicalCards;
@@ -79,7 +87,10 @@ public class ProfileService {
 	public ProfileService(UserService userService, ZoneRepository zones, TrustedContactRepository contacts,
 			MedicalCardRepository medicalCards, DeviceTokenRepository deviceTokens, PrepChecklistItemRepository checklist,
 			CapabilityRepository capabilities, SosAlertRepository sosAlerts,
-			VulnerableReportRepository vulnerableReports, StorageService storage) {
+			VulnerableReportRepository vulnerableReports, StorageService storage, ZoneFactory zoneFactory,
+			JdbcTemplate jdbc) {
+		this.zoneFactory = zoneFactory;
+		this.jdbc = jdbc;
 		this.userService = userService;
 		this.zones = zones;
 		this.contacts = contacts;
@@ -118,7 +129,10 @@ public class ProfileService {
 		return UserDto.from(user);
 	}
 
-	/** Guarda la ubicación o dirección y asigna la zona que cubre ese punto o la más cercana si está en fase piloto. */
+	/**
+	 * Guarda la ubicación o dirección y asigna la zona que cubre ese punto. Si ninguna lo cubre, crea la zona del
+	 * barrio del vecino (zoneName y district los resuelve la app con OpenStreetMap).
+	 */
 	@Transactional
 	public UserDto updateLocation(UUID userId, LocationRequest req) {
 		AppUser user = userService.get(userId);
@@ -127,14 +141,12 @@ public class ProfileService {
 		if (lat == null || lng == null) {
 			throw new BusinessRuleException(ZONE_NOT_COVERED, "Falta la latitud y longitud");
 		}
-		Zone zone = zones.findAll().stream()
-				.map(z -> Map.entry(z, GeoUtils.haversineMeters(lat, lng, z.getCenterLat(), z.getCenterLng())))
-				.filter(e -> e.getValue() <= e.getKey().getRadiusM())
-				.min(Map.Entry.comparingByValue())
-				.map(Map.Entry::getKey)
-				.orElseGet(() -> zones.findAll().stream()
-						.min(Comparator.comparingDouble(z -> GeoUtils.haversineMeters(lat, lng, z.getCenterLat(), z.getCenterLng())))
-						.orElseThrow(() -> new BusinessRuleException(ZONE_NOT_COVERED, "Nearby aún no llega a tu zona")));
+		Zone previous = user.getZone();
+		Zone zone = zoneFactory.coveringOrCreate(lat, lng, previous, req.zoneName(), req.district());
+		if (previous != null && !previous.getId().equals(zone.getId())
+				&& LegacySeedZoneCleaner.LEGACY_ZONE.equals(previous.getName())) {
+			LegacySeedZoneCleaner.moveUserContent(jdbc, user.getId(), previous.getId(), zone.getId());
+		}
 		user.setLat(lat);
 		user.setLng(lng);
 		if (req.addressText() != null) {
@@ -145,11 +157,25 @@ public class ProfileService {
 	}
 
 	@Transactional(readOnly = true)
+	public MeStatsDto stats(UUID userId) {
+		Long done = jdbc.queryForObject("select count(*) from post_response where responder_id = ?", Long.class,
+				userId);
+		Long endorsements = jdbc.queryForObject("select count(*) from endorsement where user_id = ?", Long.class,
+				userId);
+		Long received = jdbc.queryForObject("select count(*) from post_response r join post p on p.id = r.post_id "
+				+ "where p.author_id = ? and r.responder_id <> p.author_id", Long.class, userId);
+		return new MeStatsDto(done == null ? 0 : done, endorsements == null ? 0 : endorsements,
+				received == null ? 0 : received);
+	}
+
+	@Transactional(readOnly = true)
 	public UserLocationDto userLocation(UUID userId) {
 		AppUser user = userService.get(userId);
 		Zone z = user.getZone();
+		boolean covers = z != null && user.getLat() != null && user.getLng() != null
+				&& ZoneFactory.covers(z, user.getLat(), user.getLng());
 		return new UserLocationDto(user.getLat(), user.getLng(), user.getAddressText(),
-				z != null ? z.getId() : null, z != null ? z.getName() : null);
+				z != null ? z.getId() : null, z != null ? z.getName() : null, covers);
 	}
 
 	// ---------------------------------------------------------------- contactos de confianza

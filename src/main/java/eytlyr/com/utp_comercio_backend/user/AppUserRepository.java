@@ -12,6 +12,8 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
 
 	Optional<AppUser> findByPhone(String phone);
 
+	List<AppUser> findByMunicipalityIdOrderByName(UUID municipalityId);
+
 	List<AppUser> findByZoneId(UUID zoneId);
 
 	List<AppUser> findByZoneIdAndRole(UUID zoneId, Role role);

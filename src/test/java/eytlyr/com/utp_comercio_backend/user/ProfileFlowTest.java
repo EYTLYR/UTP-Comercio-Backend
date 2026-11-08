@@ -51,6 +51,7 @@ class ProfileFlowTest {
 		jdbc.update("delete from capability where user_id in " + ids);
 		jdbc.update("delete from sos_alert where user_id in " + ids);
 		jdbc.update("delete from app_user where phone like '" + TEST_PHONES + "'");
+		jdbc.update("delete from zone where name = 'San Blas'");
 	}
 
 	// ---------------------------------------------------------------- nombre y ubicación
@@ -97,11 +98,12 @@ class ProfileFlowTest {
 	}
 
 	@Test
-	void locationOutsideCoverageUsesNearestPilotZoneAndPreservesCoordinates() throws Exception {
+	void locationOutsideCoverageCreatesTheNeighborhoodZoneAndPreservesCoordinates() throws Exception {
         Session s = TestAuth.login(mvc, "900000103");
-        putJson(s, "/api/v1/me/location", "{\"lat\":-13.5320,\"lng\":-71.9675,\"addressText\":\"Dirección privada en Cusco\"}")
+        putJson(s, "/api/v1/me/location", "{\"lat\":-13.5320,\"lng\":-71.9675,\"addressText\":\"Dirección privada en Cusco\","
+                + "\"zoneName\":\"San Blas\",\"district\":\"Cusco\"}")
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.zone.name").value("Zona 3 · Las Flores"))
+                .andExpect(jsonPath("$.zone.name").value("San Blas"))
                 .andExpect(jsonPath("$.addressText").doesNotExist());
         assertThat(jdbc.queryForObject("select lat from app_user where id = ?", Double.class, s.userId()))
                 .isEqualTo(-13.5320);
