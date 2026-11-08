@@ -112,7 +112,7 @@ nearby:
     secret-key: ${AWS_SECRET_ACCESS_KEY:}
     prefix: ${NEARBY_S3_PREFIX:risk-photos/}
   cors:
-    allowed-origin-patterns: ${NEARBY_CORS_ORIGINS:}
+    allowed-origin-patterns: ${NEARBY_CORS_ORIGINS:https://nearby.eytlyr.com,https://*.eytlyr.com,http://localhost:*,http://127.0.0.1:*}
   # Administrador de la plataforma (aprueba Municipalidades registradas desde la app). Brigada: opcional, demos.
   roles:
     admin-phones: ${NEARBY_ADMIN_PHONES:}
@@ -170,6 +170,9 @@ spring:
     password: ${DB_PASSWORD}
 # Sin nearby.otp.dev-fixed-code: en prod los códigos SMS siempre son aleatorios y nunca se devuelven
 # en la respuesta (AuthService lo ignora con prod aunque llegue por variable de entorno).
+nearby:
+  cors:
+    allowed-origin-patterns: ${NEARBY_CORS_ORIGINS:https://nearby.eytlyr.com,https://*.eytlyr.com}
 springdoc:
   swagger-ui:
     enabled: ${NEARBY_SWAGGER_ENABLED:false}
