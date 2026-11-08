@@ -7,10 +7,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import eytlyr.com.utp_comercio_backend.chat.ChatService;
 import eytlyr.com.utp_comercio_backend.common.BusinessRuleException;
 import eytlyr.com.utp_comercio_backend.common.Created;
 import eytlyr.com.utp_comercio_backend.common.ForbiddenException;
@@ -21,6 +23,7 @@ import eytlyr.com.utp_comercio_backend.sms.SosCodec;
 import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.CheckInDto;
 import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.NearbySosDto;
 import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.ResponderDto;
+import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.SosContactDto;
 import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.SosCreatedDto;
 import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.SosDetailDto;
 import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.SosRequest;
@@ -69,6 +72,9 @@ public class SosService {
 	private final ApplicationEventPublisher events;
 
 	private final Clock clock;
+
+	@Autowired(required = false)
+	private ChatService chat;
 
 	public SosService(SosAlertRepository alerts, SosResponseRepository responses, CheckInRepository checkIns,
 			AppUserRepository users, TrustedContactRepository contacts, StreetCodeRepository streets, ZoneService zones,
@@ -186,12 +192,37 @@ public class SosService {
 		OffsetDateTime now = OffsetDateTime.now(clock);
 		// PostGIS filtra por radio y ordena por distancia con el índice GIST.
 		return alerts.findActiveWithinRadius(userId, me.getLat(), me.getLng(), radiusM).stream()
-				.map(a -> new NearbySosDto(a.getId(), a.getUser().getName(), a.getType(),
-						meters(me.getLat(), me.getLng(), a.getLat(), a.getLng()),
+				.map(a -> new NearbySosDto(a.getId(), a.getUser().getId(), a.getUser().getName(), a.getUser().getPhone(),
+						a.getType(), meters(me.getLat(), me.getLng(), a.getLat(), a.getLng()),
 						Duration.between(a.getCreatedAt(), now).toMinutes(),
 						responses.countByAlertIdAndStatus(a.getId(), ResponseStatus.GOING), GeoUtils.approx(a.getLat()),
 						GeoUtils.approx(a.getLng())))
 				.toList();
+	}
+
+	/**
+	 * Crea u obtiene la conversación directa de emergencia con la persona que activó el SOS
+	 * para que la llamada de voz o el chat funcione inmediatamente sin trabas.
+	 */
+	@Transactional
+	public SosContactDto contact(UUID callerId, UUID sosId) {
+		SosAlert a = alert(sosId);
+		AppUser me = user(callerId);
+		AppUser victim = a.getUser();
+		if (me.getId().equals(victim.getId())) {
+			throw new BusinessRuleException("CHAT_SELF", "No puedes abrir un canal de emergencia contigo mismo.");
+		}
+		if (chat == null) {
+			throw new BusinessRuleException("CHAT_UNAVAILABLE", "Servicio de chat no disponible temporalmente.");
+		}
+		String typeLabel = a.getType() != null ? a.getType().label() : "Emergencia";
+		var conversation = chat.getOrCreate(me, victim, null, null, "Emergencia SOS: " + typeLabel);
+		return new SosContactDto(
+				conversation.getId(),
+				victim.getId(),
+				victim.getName(),
+				victim.getPhone() != null ? victim.getPhone() : ""
+		);
 	}
 
 	/** GOING (voy, con tiempo estimado caminando), DECLINED (no puedo: se avisa más lejos) o ARRIVED (llegué). */

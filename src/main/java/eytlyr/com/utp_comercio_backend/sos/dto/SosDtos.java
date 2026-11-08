@@ -42,8 +42,11 @@ public final class SosDtos {
 			List<ResponderDto> responders) {
 	}
 
-	public record NearbySosDto(UUID id, String userName, SosType type, int distanceM, long minutesAgo,
+	public record NearbySosDto(UUID id, UUID userId, String userName, String userPhone, SosType type, int distanceM, long minutesAgo,
 			long goingCount, double approxLat, double approxLng) {
+	}
+
+	public record SosContactDto(UUID conversationId, UUID userId, String userName, String phone) {
 	}
 
 	public record SosResponseRequest(@NotNull(message = "Indica GOING, DECLINED o ARRIVED") ResponseStatus status) {

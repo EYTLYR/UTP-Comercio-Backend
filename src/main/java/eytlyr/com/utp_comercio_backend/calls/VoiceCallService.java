@@ -6,11 +6,13 @@ import java.util.*;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import eytlyr.com.utp_comercio_backend.chat.ChatService;
 import eytlyr.com.utp_comercio_backend.common.*;
+import eytlyr.com.utp_comercio_backend.notification.NotificationService;
 
 /** Signaling only. Audio is encrypted WebRTC traffic between the devices. */
 @Service
@@ -23,6 +25,10 @@ public class VoiceCallService {
     private final ChatService chat;
     private final Clock clock;
     private final String stun, turn, secret;
+
+    @Autowired(required = false)
+    private NotificationService notifications;
+
     public VoiceCallService(ChatService chat, Clock clock,
         @Value("${NEARBY_STUN_URL:stun:stun.l.google.com:19302}") String stun,
         @Value("${NEARBY_TURN_URL:}") String turn,
@@ -57,7 +63,21 @@ public class VoiceCallService {
         if (calls.size() >= 1000) throw new BusinessRuleException("CALL_LIMIT", "No se pudo iniciar la llamada. Inténtalo después.");
         var caller = conversation.getUserA().getId().equals(me) ? conversation.getUserA() : conversation.getUserB();
         var c = new Call(UUID.randomUUID(), conversationId, me, other.getId(), caller.getName(), other.getName(), "RINGING", offer, null, clock.instant().plusSeconds(90));
-        calls.put(c.id(), c); return c;
+        calls.put(c.id(), c);
+        if (notifications != null) {
+            notifications.notifyUser(
+                other.getId(),
+                "Llamada entrante de Nearby",
+                caller.getName() + " te está llamando...",
+                Map.of(
+                    "type", "VOICE_CALL",
+                    "callId", c.id().toString(),
+                    "conversationId", conversationId.toString(),
+                    "callerName", caller.getName()
+                )
+            );
+        }
+        return c;
     }
     public synchronized List<Call> incoming(UUID me) {
         cleanup(); return calls.values().stream().filter(c -> c.calleeId().equals(me) && c.state().equals("RINGING")).toList();

@@ -23,6 +23,7 @@ import eytlyr.com.utp_comercio_backend.auth.CurrentUser;
 import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.CheckInDto;
 import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.CheckInRequest;
 import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.NearbySosDto;
+import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.SosContactDto;
 import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.SosCreatedDto;
 import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.SosDetailDto;
 import eytlyr.com.utp_comercio_backend.sos.dto.SosDtos.SosRequest;
@@ -87,6 +88,12 @@ public class SosController {
 	@Operation(summary = "Responder: GOING (voy), DECLINED (no puedo) o ARRIVED (llegué)")
 	public SosDetailDto respond(@PathVariable UUID id, @Valid @RequestBody SosResponseRequest body) {
 		return sos.respond(currentUser.id(), id, body.status());
+	}
+
+	@PostMapping("/api/v1/sos/{id}/contact")
+	@Operation(summary = "Obtener o crear canal de contacto/llamada directo con la persona en SOS")
+	public SosContactDto contact(@PathVariable UUID id) {
+		return sos.contact(currentUser.id(), id);
 	}
 
 	@PostMapping("/api/v1/check-ins")
