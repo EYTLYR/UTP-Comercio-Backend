@@ -77,19 +77,26 @@ class SyncFlowTest {
 		String clientId = UUID.randomUUID().toString();
 		String post = "{\"kind\":\"POST\",\"payload\":{\"clientId\":\"" + clientId
 				+ "\",\"type\":\"OFFER\",\"category\":\"TOOL_LOAN\",\"text\":\"Presto mi carretilla\"}}";
+		long pastExpiresAt = System.currentTimeMillis() - 10000;
+		String expiredId = UUID.randomUUID().toString();
+		String expiredPost = "{\"kind\":\"POST\",\"payload\":{\"clientId\":\"" + expiredId
+				+ "\",\"type\":\"NEED\",\"category\":\"TEMPORARY_HELP\",\"text\":\"Empujar auto caducado\",\"expiresAt\":" + pastExpiresAt + "}}";
 		String body = "[" + post + "," + post
 				+ ",{\"kind\":\"VULNERABLE_REPORT\",\"payload\":{\"clientId\":\"" + UUID.randomUUID() + "\"}}"
-				+ ",{\"kind\":\"CHECK_IN\",\"payload\":{\"status\":\"SAFE\"}}]";
+				+ ",{\"kind\":\"CHECK_IN\",\"payload\":{\"status\":\"SAFE\"}},"
+				+ expiredPost + "]";
 		mvc.perform(post("/api/v1/sync/outbox").header("Authorization", maria.bearer())
 						.contentType(MediaType.APPLICATION_JSON).content(body))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.length()").value(4))
+				.andExpect(jsonPath("$.length()").value(5))
 				.andExpect(jsonPath("$[0].status").value("CREATED"))
 				.andExpect(jsonPath("$[0].clientId").value(clientId))
 				.andExpect(jsonPath("$[1].status").value("DUPLICATE"))
 				.andExpect(jsonPath("$[2].status").value("ERROR"))
 				.andExpect(jsonPath("$[2].code").value("VALIDATION_ERROR"))
 				.andExpect(jsonPath("$[2].error").value("Elige la categoría"))
-				.andExpect(jsonPath("$[3].status").value("CREATED"));
+				.andExpect(jsonPath("$[3].status").value("CREATED"))
+				.andExpect(jsonPath("$[4].status").value("ERROR"))
+				.andExpect(jsonPath("$[4].code").value("EXPIRED"));
 	}
 }

@@ -24,7 +24,12 @@ public final class PostDtos {
 			@Size(max = 1000, message = "El texto no debe pasar de 1000 caracteres") String text,
 			@Size(max = 500) String photoUrl,
 			Double lat,
-			Double lng) {
+			Double lng,
+			Long expiresAt,
+			Integer ttl) {
+		public PostRequest(UUID clientId, PostType type, PostCategory category, String text, String photoUrl, Double lat, Double lng) {
+			this(clientId, type, category, text, photoUrl, lat, lng, null, null);
+		}
 	}
 
 	public record PostResponseDto(

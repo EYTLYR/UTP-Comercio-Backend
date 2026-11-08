@@ -74,8 +74,14 @@ public class OutboxProcessor {
 			UUID clientId = clientId(item.payload());
 			try {
 				out.add(switch (item.kind()) {
-					case POST -> result(item, clientId, posts.create(userId, read(item, PostRequest.class)),
-							c -> c.body().id());
+					case POST -> {
+						PostRequest req = read(item, PostRequest.class);
+						if (req.expiresAt() != null && req.expiresAt() < System.currentTimeMillis()) {
+							yield new OutboxResult(clientId, item.kind(), OutboxStatus.ERROR, null, "EXPIRED",
+									"La publicación ha caducado por superar el tiempo límite sin conexión.");
+						}
+						yield result(item, clientId, posts.create(userId, req), c -> c.body().id());
+					}
 					case SOS -> result(item, clientId, sos.create(userId, read(item, SosRequest.class)), c -> c.body().id());
 					case VULNERABLE_REPORT -> result(item, clientId,
 							emergency.createReport(userId, read(item, VulnerableReportRequest.class)), c -> c.body().id());
