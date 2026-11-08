@@ -58,8 +58,11 @@ public class ServiceController {
 			@RequestParam(defaultValue = "false") boolean emergencyOnly,
 			@RequestParam(defaultValue = "endorsements") String sort, @RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "20") int size) {
+		int safePage = Math.max(page, 0);
+		int safeSize = Math.clamp(size, 1, 50);
+		int safeRadius = Math.clamp(radiusM, 100, 10000);
 		return catalog.search(currentUser.id(),
-				new SearchQuery(category, q, lat, lng, radiusM, emergencyOnly, sort, page, size));
+				new SearchQuery(category, q, lat, lng, safeRadius, emergencyOnly, sort, safePage, safeSize));
 	}
 
 	@GetMapping("/{id}")

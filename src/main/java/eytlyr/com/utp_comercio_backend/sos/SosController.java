@@ -75,7 +75,12 @@ public class SosController {
 	@GetMapping("/api/v1/sos/nearby")
 	@Operation(summary = "SOS activos cerca de mí (ubicación aproximada)")
 	public List<NearbySosDto> nearby(@RequestParam(defaultValue = "1000") int radiusM) {
-		return sos.nearby(currentUser.id(), radiusM);
+		int safeRadius = Math.clamp(radiusM, 100, 5000);
+		List<NearbySosDto> list = sos.nearby(currentUser.id(), safeRadius);
+		if (list.size() > 50) {
+			return list.subList(0, 50);
+		}
+		return list;
 	}
 
 	@PostMapping("/api/v1/sos/{id}/responses")

@@ -55,7 +55,9 @@ public class EmergencyController {
 	@Operation(summary = "Reportes de vecinos vulnerables (dirección exacta solo para la brigada)")
 	public PageResponse<VulnerableReportDto> reports(@RequestParam(required = false) ReportStatus status,
 			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
-		return emergency.reports(currentUser.id(), status, page, size);
+		int safePage = Math.max(page, 0);
+		int safeSize = Math.clamp(size, 1, 50);
+		return emergency.reports(currentUser.id(), status, safePage, safeSize);
 	}
 
 	@PostMapping("/api/v1/vulnerable-reports")

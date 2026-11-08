@@ -51,7 +51,10 @@ public class PostController {
 	public PageResponse<PostDto> list(@RequestParam(required = false) PostType type,
 			@RequestParam(required = false) PostCategory category, @RequestParam(defaultValue = "1000") int radiusM,
 			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
-		return posts.list(currentUser.id(), type, category, radiusM, page, size);
+		int safePage = Math.max(page, 0);
+		int safeSize = Math.clamp(size, 1, 50);
+		int safeRadius = Math.clamp(radiusM, 100, 10000);
+		return posts.list(currentUser.id(), type, category, safeRadius, safePage, safeSize);
 	}
 
 	@GetMapping("/api/v1/posts/{id}")
