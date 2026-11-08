@@ -1,18 +1,13 @@
-# Solo la API: PostgreSQL/PostGIS y el almacenamiento son servicios externos.
+# Despliegue: cargar nearby-backend:server con docker load y ejecutar docker compose up -d.
+# No requiere código fuente, Dockerfile, .env ni acceso a un registro.
 services:
   app:
-    image: nearby-backend:local
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: nearby-backend:server
+    pull_policy: never
     restart: unless-stopped
     init: true
-    # Permite actualizar la configuración sin reconstruir la imagen.
-    # docker run también funciona con el .env incorporado en la imagen.
-    env_file:
-      - .env
     environment:
       PORT: '8080'
       DOCKER_COMPOSE_ENABLED: 'false'
     ports:
-      - '${PORT:-8080}:8080'
+      - '8080:8080'

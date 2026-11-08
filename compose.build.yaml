@@ -1,0 +1,7 @@
+# Solo se utiliza en el equipo donde se construye la imagen.
+services:
+  app:
+    image: nearby-backend:server
+    build:
+      context: .
+      dockerfile: Dockerfile

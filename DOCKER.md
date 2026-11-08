@@ -1,38 +1,76 @@
-# Backend en Docker
+# Construcción y despliegue del backend
 
-PostgreSQL/PostGIS es un servicio externo. Este despliegue solo crea el contenedor de la API; no crea ni elimina bases de datos.
+PostgreSQL/PostGIS y el almacenamiento son servicios externos. Compose solo levanta la API. El servidor necesita Docker Engine con Docker Compose, la imagen exportada y el archivo `docker-compose.yml`.
 
-## Preparación
+## 1. Construir en tu equipo
 
-Mantén el archivo `.env` en la raíz del backend. Si aún no existe, copia `.env.example` y completa sus valores. Configura `SPRING_PROFILES_ACTIVE=prod`, `DB_URL`, `DB_USER`, `DB_PASSWORD`, el secreto JWT y las credenciales de los servicios que utilices. Para Neon puedes especificar `DB_MIGRATION_URL` con la conexión directa y usar el pooler en `DB_URL`; si no necesitas una URL distinta, omite esa variable en lugar de dejarla vacía.
+Completa el `.env` del backend antes de construir. El Dockerfile lo incorpora en `/app/.env` y Spring lo importa automáticamente. Configura el perfil y las credenciales apropiados para el servidor. `DB_URL` y, si corresponde, `DB_MIGRATION_URL` deben apuntar a la base externa accesible desde el servidor; `localhost` dentro del contenedor apunta al propio contenedor. Si no necesitas una URL distinta para migraciones, omite `DB_MIGRATION_URL` en lugar de dejarla vacía.
 
-La base debe tener PostGIS disponible y permitir conexiones desde el equipo o servidor Docker. Dentro del contenedor, `localhost` apunta al propio contenedor. Si PostgreSQL corre en Windows con Docker Desktop, utiliza `host.docker.internal` en la URL JDBC; si es remoto, utiliza su hostname real.
-
-## Ejecutar con Compose
+Desde la raíz del backend, con Docker iniciado:
 
 ```powershell
-docker compose up -d --build
+docker compose -f compose.build.yaml build
+docker image save -o nearby-backend.tar nearby-backend:server
+```
+
+La imagen debe corresponder a la arquitectura del servidor. Si el servidor es Linux AMD64 y construyes desde otra arquitectura, usa en lugar del primer comando:
+
+```powershell
+docker buildx build --platform linux/amd64 --load -t nearby-backend:server .
+```
+
+## 2. Copiar al servidor
+
+Transfiere únicamente estos dos archivos a una carpeta del servidor:
+
+- `nearby-backend.tar`
+- `docker-compose.yml`
+
+No necesitas copiar el repositorio, Java, Maven, Dockerfile ni `.env` al servidor.
+
+## 3. Cargar y ejecutar
+
+Dentro de esa carpeta del servidor:
+
+```sh
+docker load -i nearby-backend.tar
+docker compose up -d
+```
+
+La carga de la imagen se realiza una vez por versión. Después basta con `docker compose up -d`. Compose usa exclusivamente la imagen local `nearby-backend:server`: no compila ni intenta descargar imágenes de un registro.
+
+La API queda publicada en el puerto 8080. El contenedor se reinicia automáticamente si falla o se reinicia Docker. El healthcheck consulta `/actuator/health`.
+
+```sh
+docker compose ps
 docker compose logs -f app
 ```
 
-`compose.yaml` y `docker-compose.yml` describen el mismo servicio. También puedes usar explícitamente `docker compose -f docker-compose.yml up -d --build`. El puerto del equipo se toma de `PORT` en `.env`, o de 8080. El puerto interno de Compose siempre es 8080.
+Para detener este despliegue: `docker compose down`.
 
-Para detener únicamente este despliegue:
+## Actualizar una versión
 
-```powershell
-docker compose down
+Reconstruye y exporta en tu equipo. Transfiere el nuevo archivo y ejecuta en el servidor:
+
+```sh
+docker load -i nearby-backend.tar
+docker compose up -d --force-recreate
 ```
 
-## Imagen autónoma
+Si cambias credenciales o URLs del `.env`, reconstruye la imagen para incorporar los nuevos valores. Las variables de entorno inyectadas al contenedor tienen prioridad sobre el archivo incorporado; el puerto interno se fija en 8080.
 
-```powershell
-docker build -t nearby-backend:local .
-docker run -d --name nearby-backend -p 8080:8080 nearby-backend:local
+## Ejecutar sin Compose
+
+Después de cargar la imagen también puedes ejecutar:
+
+```sh
+docker run -d --name nearby-backend --restart unless-stopped --init -p 8080:8080 nearby-backend:server
 ```
 
-El Dockerfile copia `.env` a `/app/.env`; Spring ya lo importa automáticamente. No hace falta montar archivos adicionales. La imagen fija el puerto interno en 8080; puedes sobrescribirlo con `-e PORT=otro_puerto` y publicar ese mismo puerto. Las variables inyectadas con `--env-file` o `-e` tienen prioridad sobre el archivo incorporado. Compose carga además el `.env` actual al arrancar, por lo que permite cambiar valores sin reconstruir; con `docker run` sin argumentos adicionales, reconstruye para incorporar cambios.
+Usa esta opción o Compose para evitar que ambos intenten ocupar el mismo puerto.
 
-La imagen contiene las credenciales del `.env`: almacénala y distribúyela en registros privados. Evita compartirla públicamente. Ser autónoma en configuración no elimina la necesidad de acceso de red a PostgreSQL, S3 y los demás servicios externos; las URLs deben ser accesibles desde cada ambiente.
+## Notas de distribución
 
-La imagen usa Java 21, usuario sin privilegios y un healthcheck HTTP en `/actuator/health`. La construcción omite las pruebas; ejecútalas por separado antes de publicar la imagen.
+La imagen contiene las credenciales del `.env`: distribuye el archivo TAR por un canal privado y no publiques la imagen en un registro público. El servidor debe poder conectarse a PostgreSQL/PostGIS, S3 y los demás servicios configurados. El contenedor utiliza Java 21 y un usuario sin privilegios. La construcción omite las pruebas, que deben ejecutarse por separado antes de publicar.
 
+`compose.yaml` y `docker-compose.yml` contienen el mismo despliegue para admitir ambos nombres habituales. `compose.prod.yaml` es un alias del primero. Para construir utiliza explícitamente `compose.build.yaml`; los archivos de despliegue nunca construyen imágenes.
