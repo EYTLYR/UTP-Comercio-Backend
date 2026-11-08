@@ -21,10 +21,15 @@ public record UserDto(UUID id, String name, String phone, Role role, boolean ver
 	public record MunicipalitySummary(UUID id, String name, String district) {
 	}
 
-	public record ZoneSummary(UUID id, String name, ZoneMode mode, ModeSource modeSource, WeatherLevel weatherLevel) {
+	/** modeReason y modeActivatedAt: motivo y hora en que se activó el modo actual (null en NORMAL). */
+	public record ZoneSummary(UUID id, String name, ZoneMode mode, ModeSource modeSource, WeatherLevel weatherLevel,
+			String modeReason, OffsetDateTime modeActivatedAt, double centerLat, double centerLng, int radiusM) {
 
 		static ZoneSummary from(Zone z) {
-			return new ZoneSummary(z.getId(), z.getName(), z.getMode(), z.getModeSource(), z.getWeatherLevel());
+			boolean normal = z.getMode() == ZoneMode.NORMAL;
+			return new ZoneSummary(z.getId(), z.getName(), z.getMode(), z.getModeSource(), z.getWeatherLevel(),
+					normal ? null : z.getModeReason(), normal ? null : z.getModeActivatedAt(), z.getCenterLat(),
+					z.getCenterLng(), z.getRadiusM());
 		}
 	}
 

@@ -39,6 +39,13 @@ public class ZoneController {
 		return zones.all();
 	}
 
+	@org.springframework.web.bind.annotation.PostMapping("/api/v1/zones")
+	@org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+	@Operation(summary = "Registrar una zona nueva (un vecino puede registrar hasta 5)")
+	public ZoneDto create(@Valid @RequestBody eytlyr.com.utp_comercio_backend.zone.dto.ZoneDtos.ZoneCreateRequest body) {
+		return zones.create(currentUser.id(), body);
+	}
+
 	@GetMapping("/api/v1/zones/current")
 	@Operation(summary = "Mi zona y su modo actual")
 	public ZoneDto current() {

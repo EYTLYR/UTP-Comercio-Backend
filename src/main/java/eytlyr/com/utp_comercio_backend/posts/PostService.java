@@ -105,14 +105,23 @@ public class PostService {
 	public PageResponse<PostDto> list(UUID userId, PostType type, PostCategory category, int radiusM, int page,
 			int size) {
 		AppUser me = user(userId);
-		if (me.getZone() == null) {
+		Set<UUID> responded = responses.postIdsRespondedBy(userId);
+		List<Post> source;
+		if (me.getLat() != null && me.getLng() != null) {
+			// Vecinos cercanos aunque estén en la zona de al lado.
+			double[] b = GeoUtils.box(me.getLat(), me.getLng(), radiusM);
+			source = posts.findNear(b[0], b[1], b[2], b[3], VISIBLE);
+		}
+		else if (me.getZone() != null) {
+			source = posts.findInZone(me.getZone().getId(), VISIBLE);
+		}
+		else {
 			return new PageResponse<>(List.of(), page, size, 0, 0);
 		}
-		Set<UUID> responded = responses.postIdsRespondedBy(userId);
-		List<PostDto> all = posts.findInZone(me.getZone().getId(), VISIBLE).stream()
+		List<PostDto> all = source.stream()
 				.filter(p -> type == null || p.getType() == type)
 				.filter(p -> category == null || p.getCategory() == category)
-				.map(p -> toDto(p, me, responded))
+				.map(p -> withResponses(toDto(p, me, responded)))
 				.filter(p -> p.distanceM() == null || p.distanceM() <= radiusM)
 				.toList();
 		int s = Math.max(1, Math.min(size, 50));
@@ -194,6 +203,16 @@ public class PostService {
 		return users.findById(userId).orElseThrow(() -> NotFoundException.of("el usuario"));
 	}
 
+	/** En mis publicaciones, cuántos vecinos respondieron. */
+	private PostDto withResponses(PostDto d) {
+		if (!d.mine()) {
+			return d;
+		}
+		return new PostDto(d.id(), d.type(), d.category(), d.categoryLabel(), d.text(), d.authorName(),
+				d.authorInitials(), d.distanceM(), d.createdAt(), d.respondedByMe(), d.status(), true,
+				responses.countByPostId(d.id()), d.authorZoneName());
+	}
+
 	private static PostDto toDto(Post p, AppUser viewer, Set<UUID> responded) {
 		Integer distance = viewer.getLat() != null && viewer.getLng() != null
 				? (int) Math.round(GeoUtils.haversineMeters(viewer.getLat(), viewer.getLng(), p.getLat(), p.getLng()))
@@ -201,6 +220,6 @@ public class PostService {
 		AppUser a = p.getAuthor();
 		return new PostDto(p.getId(), p.getType(), p.getCategory(), p.getCategory().label(), p.getText(), a.getName(),
 				TextUtils.initials(a.getName()), distance, p.getCreatedAt(), responded.contains(p.getId()),
-				p.getStatus(), a.getId().equals(viewer.getId()));
+				p.getStatus(), a.getId().equals(viewer.getId()), 0, a.getZone() != null ? a.getZone().getName() : null);
 	}
 }

@@ -15,4 +15,10 @@ public interface NeighborServiceRepository extends JpaRepository<NeighborService
 	@Query("select s from NeighborService s join fetch s.owner where s.active = true")
 	List<NeighborService> findAllActive();
 
+	/** Oficios activos cerca de un punto, de cualquier zona. */
+	@Query("select s from NeighborService s join fetch s.owner where s.active = true "
+			+ "and s.lat between :minLat and :maxLat and s.lng between :minLng and :maxLng")
+	List<NeighborService> findActiveNear(@Param("minLat") double minLat, @Param("maxLat") double maxLat,
+			@Param("minLng") double minLng, @Param("maxLng") double maxLng);
+
 }

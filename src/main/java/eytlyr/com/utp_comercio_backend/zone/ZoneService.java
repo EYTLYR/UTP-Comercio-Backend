@@ -47,8 +47,11 @@ public class ZoneService {
 
 	private final NearbyProperties.Emergency emergencyProps;
 
+	private final ZoneFactory zoneFactory;
+
 	public ZoneService(ZoneRepository zones, AppUserRepository users, SosAlertRepository sosAlerts,
-			ApplicationEventPublisher events, Clock clock, NearbyProperties props) {
+			ApplicationEventPublisher events, Clock clock, NearbyProperties props, ZoneFactory zoneFactory) {
+		this.zoneFactory = zoneFactory;
 		this.zones = zones;
 		this.users = users;
 		this.sosAlerts = sosAlerts;
@@ -142,6 +145,23 @@ public class ZoneService {
 			case CLEAR_LOCAL -> u.setLocalEmergency(false);
 		}
 		return UserDto.from(u);
+	}
+
+	/** Máximo de zonas que un vecino puede registrar (Municipalidad y plataforma: sin límite). */
+	public static final int MAX_ZONES_PER_NEIGHBOR = 5;
+
+	/** Un vecino registra una zona (su barrio, la casa de su familia, su trabajo…). */
+	@Transactional
+	public ZoneDto create(UUID actorId, eytlyr.com.utp_comercio_backend.zone.dto.ZoneDtos.ZoneCreateRequest req) {
+		AppUser actor = user(actorId);
+		boolean staff = actor.getRole() == eytlyr.com.utp_comercio_backend.user.Role.ADMIN
+				|| actor.getRole() == eytlyr.com.utp_comercio_backend.user.Role.MUNICIPALITY;
+		if (!staff && zones.countByCreatedBy(actorId) >= MAX_ZONES_PER_NEIGHBOR) {
+			throw new BusinessRuleException("ZONE_LIMIT",
+					"Ya registraste " + MAX_ZONES_PER_NEIGHBOR + " zonas. Pide a tu Municipalidad que cree las demás.");
+		}
+		int radius = req.radiusM() != null ? req.radiusM() : ZoneFactory.DEFAULT_RADIUS_M;
+		return ZoneDto.from(zoneFactory.create(req.name(), req.district(), req.lat(), req.lng(), radius, actorId));
 	}
 
 	@Transactional(readOnly = true)

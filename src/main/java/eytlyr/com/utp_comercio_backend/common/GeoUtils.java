@@ -10,6 +10,13 @@ public final class GeoUtils {
 	private GeoUtils() {
 	}
 
+	/** Caja [minLat, maxLat, minLng, maxLng] que contiene el círculo de radio radiusM (para filtrar en SQL). */
+	public static double[] box(double lat, double lng, double radiusM) {
+		double dLat = radiusM / 111_320d;
+		double dLng = radiusM / (111_320d * Math.max(0.01, Math.cos(Math.toRadians(lat))));
+		return new double[] { lat - dLat, lat + dLat, lng - dLng, lng + dLng };
+	}
+
 	public static double haversineMeters(double lat1, double lng1, double lat2, double lng2) {
 		double dLat = Math.toRadians(lat2 - lat1);
 		double dLng = Math.toRadians(lng2 - lng1);

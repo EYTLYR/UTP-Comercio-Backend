@@ -39,6 +39,10 @@ public class ZoneFactory {
 	}
 
 	public Zone create(String name, String district, double lat, double lng, int radiusM) {
+		return create(name, district, lat, lng, radiusM, null);
+	}
+
+	public Zone create(String name, String district, double lat, double lng, int radiusM, java.util.UUID createdBy) {
 		String cleanDistrict = clean(district);
 		String base = clean(name);
 		if (base == null) {
@@ -52,6 +56,7 @@ public class ZoneFactory {
 				.centerLng(lng)
 				.radiusM(Math.max(200, Math.min(radiusM, 10_000)))
 				.mode(ZoneMode.NORMAL)
+				.createdBy(createdBy)
 				.build();
 		// Se guarda de inmediato: luego se mueven filas a esta zona con SQL directo.
 		return zones.saveAndFlush(z);

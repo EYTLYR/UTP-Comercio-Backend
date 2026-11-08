@@ -11,4 +11,6 @@ public interface ZoneRepository extends JpaRepository<Zone, UUID> {
 
 	boolean existsByName(String name);
 
+	long countByCreatedBy(java.util.UUID createdBy);
+
 }
