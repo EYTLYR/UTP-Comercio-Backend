@@ -65,10 +65,10 @@ class HttpSmsGatewayTest {
 
 	@Test
 	void sendsToMicroserviceWithApiKey() {
-		gateway("clave-secreta").send("987654321", "Tu código Nearby es 123456. No lo compartas.");
+		gateway("clave-secreta").send("987654321", "Nearby: 123456 es tu clave para ingresar.");
 		assertThat(hits.get()).isEqualTo(1);
 		assertThat(key.get()).isEqualTo("clave-secreta");
-		assertThat(body.get()).contains("\"to\":\"987654321\"").contains("Tu código Nearby es 123456");
+		assertThat(body.get()).contains("\"to\":\"987654321\"").contains("Nearby: 123456 es tu clave para ingresar.");
 	}
 
 	@Test

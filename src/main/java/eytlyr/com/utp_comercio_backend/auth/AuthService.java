@@ -128,7 +128,7 @@ public class AuthService {
 				.expiresAt(now.plusSeconds(ttl))
 				.build());
 		try {
-			sms.send(phone, "Tu código Nearby es " + code + ". No lo compartas.");
+			sms.send(phone, "Nearby: " + code + " es tu clave para ingresar.");
 		}
 		catch (RuntimeException ex) {
 			// Si falla la pasarela o el chip celular no puede despachar el SMS,
