@@ -101,16 +101,39 @@ public class VoiceCallService {
         calls.put(id, changed(c, c.state().equals("RINGING") && me.equals(c.calleeId()) ? "REJECTED" : "ENDED", c.answer(), clock.instant().plusSeconds(120)));
     }
     public Map<String, Object> configuration(UUID me) {
-        var servers = new ArrayList<Map<String, String>>();
-        servers.add(Map.of("urls", stun));
+        var servers = new ArrayList<Map<String, Object>>();
+        servers.add(Map.of("urls", List.of(
+            "stun:stun.l.google.com:19302",
+            "stun:stun1.l.google.com:19302",
+            "stun:stun2.l.google.com:19302",
+            "stun:stun3.l.google.com:19302",
+            "stun:stun4.l.google.com:19302"
+        )));
+        servers.add(Map.of("urls", List.of("stun:openrelay.metered.ca:80")));
+
         if (!turn.isBlank() && !secret.isBlank()) {
             try {
                 var username = (clock.instant().getEpochSecond() + 10800) + ":" + me;
                 var mac = Mac.getInstance("HmacSHA1");
                 mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
-                servers.add(Map.of("urls", turn, "username", username, "credential", Base64.getEncoder().encodeToString(mac.doFinal(username.getBytes(StandardCharsets.UTF_8)))));
+                servers.add(Map.of(
+                    "urls", List.of(turn),
+                    "username", username,
+                    "credential", Base64.getEncoder().encodeToString(mac.doFinal(username.getBytes(StandardCharsets.UTF_8)))
+                ));
             } catch (Exception e) { throw new IllegalStateException("No se pudo configurar TURN", e); }
+        } else {
+            // TURN Relay público (OpenRelay / Metered) para conectar celulares a través de CGNAT / 4G móvil
+            servers.add(Map.of(
+                "urls", List.of(
+                    "turn:openrelay.metered.ca:80",
+                    "turn:openrelay.metered.ca:443",
+                    "turn:openrelay.metered.ca:443?transport=tcp"
+                ),
+                "username", "openrelayproject",
+                "credential", "openrelayproject"
+            ));
         }
-        return Map.of("iceServers", servers);
+        return Map.of("iceServers", servers, "sdpSemantics", "unified-plan");
     }
 }
