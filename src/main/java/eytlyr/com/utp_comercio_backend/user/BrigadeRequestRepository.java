@@ -13,6 +13,6 @@ public interface BrigadeRequestRepository extends JpaRepository<BrigadeRequest, 
 
 	Optional<BrigadeRequest> findFirstByUserIdAndStatus(UUID userId, BrigadeRequest.Status status);
 
-	@EntityGraph(attributePaths = "user")
+	@EntityGraph(attributePaths = { "user", "user.zone" })
 	List<BrigadeRequest> findTop100ByStatusOrderByCreatedAtAsc(BrigadeRequest.Status status);
 }

@@ -16,7 +16,7 @@ import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.BrigadeMedicalCardDt
 @RestController
 @RequestMapping("/api/v1/brigade")
 @Tag(name = "Brigada")
-@PreAuthorize("hasAnyRole('BRIGADIST', 'ADMIN')")
+@PreAuthorize("hasAnyRole('BRIGADIST', 'MUNICIPALITY', 'ADMIN')")
 public class BrigadeController {
 
 	private final ProfileService profile;

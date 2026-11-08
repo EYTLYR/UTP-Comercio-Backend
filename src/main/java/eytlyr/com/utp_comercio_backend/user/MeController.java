@@ -27,6 +27,7 @@ import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.AiLearningDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.DeviceTokenRequest;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.LocationRequest;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.MedicalCardDto;
+import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.MeStatsDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.PrepChecklistItemDto;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.SettingsRequest;
 import eytlyr.com.utp_comercio_backend.user.dto.ProfileDtos.TrustedContactDto;
@@ -91,6 +92,12 @@ public class MeController {
 	@Operation(summary = "Estado de mi solicitud de brigadista: NONE, PENDING, APPROVED o REJECTED")
 	public BrigadeRequestDto myBrigadeRequest() {
 		return roles.myRequest(currentUser.id());
+	}
+
+	@GetMapping("/stats")
+	@Operation(summary = "Favores que hice, vistos buenos que di y favores que recibí")
+	public MeStatsDto stats() {
+		return profile.stats(currentUser.id());
 	}
 
 	@GetMapping("/location")

@@ -23,11 +23,11 @@ import eytlyr.com.utp_comercio_backend.user.dto.RoleDtos.BrigadeRequestDto;
 import eytlyr.com.utp_comercio_backend.user.dto.RoleDtos.RoleChangeRequest;
 import eytlyr.com.utp_comercio_backend.user.dto.RoleDtos.UserSummaryDto;
 
-/** Panel de la Municipalidad: solicitudes de brigadista y roles. */
+/** Panel de la Municipalidad: solicitudes de brigadista y roles, siempre dentro de su jurisdicción. */
 @RestController
 @RequestMapping("/api/v1/admin")
 @Tag(name = "Municipalidad")
-@PreAuthorize("hasAnyRole('ADMIN', 'DELEGATE')")
+@PreAuthorize("hasAnyRole('ADMIN', 'MUNICIPALITY', 'DELEGATE')")
 public class AdminRoleController {
 
 	private final RoleService roles;
@@ -42,7 +42,7 @@ public class AdminRoleController {
 	@GetMapping("/brigade-requests")
 	@Operation(summary = "Solicitudes de brigadista pendientes, de la más antigua a la más nueva")
 	public List<BrigadeRequestDto> pending() {
-		return roles.pending();
+		return roles.pending(currentUser.id());
 	}
 
 	@PostMapping("/brigade-requests/{id}/approve")
@@ -64,8 +64,8 @@ public class AdminRoleController {
 	}
 
 	@PutMapping("/users/{id}/role")
-	@PreAuthorize("hasRole('ADMIN')")
-	@Operation(summary = "Cambiar el rol de un vecino: NEIGHBOR, BRIGADIST o DELEGATE (solo ADMIN)")
+	@PreAuthorize("hasAnyRole('ADMIN', 'MUNICIPALITY')")
+	@Operation(summary = "Cambiar el rol de un vecino de mi distrito: NEIGHBOR, BRIGADIST o DELEGATE")
 	public UserSummaryDto changeRole(@PathVariable UUID id, @Valid @RequestBody RoleChangeRequest body) {
 		return roles.changeRole(currentUser.id(), id, body.role());
 	}

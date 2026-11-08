@@ -14,9 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import eytlyr.com.utp_comercio_backend.ai.dto.AiDtos.ZoneEmergencyActivatedEvent;
 import eytlyr.com.utp_comercio_backend.common.BusinessRuleException;
+import eytlyr.com.utp_comercio_backend.common.ForbiddenException;
 import eytlyr.com.utp_comercio_backend.common.GeoUtils;
 import eytlyr.com.utp_comercio_backend.common.NotFoundException;
 import eytlyr.com.utp_comercio_backend.config.NearbyProperties;
+import eytlyr.com.utp_comercio_backend.municipality.Jurisdiction;
 import eytlyr.com.utp_comercio_backend.notification.Dispatch;
 import eytlyr.com.utp_comercio_backend.sos.SosAlertRepository;
 import eytlyr.com.utp_comercio_backend.sos.SosStatus;
@@ -66,8 +68,12 @@ public class ZoneService {
 
 	/** Municipalidad o delegado: cambia el modo de toda la zona y avisa a los vecinos. */
 	@Transactional
-	public ZoneDto setMode(UUID zoneId, ZoneModeRequest req) {
+	public ZoneDto setMode(UUID actorId, UUID zoneId, ZoneModeRequest req) {
 		Zone z = zones.findById(zoneId).orElseThrow(() -> NotFoundException.of("la zona"));
+		AppUser actor = users.findById(actorId).orElseThrow(() -> NotFoundException.of("el usuario"));
+		if (!Jurisdiction.covers(actor, z)) {
+			throw new ForbiddenException("OUT_OF_JURISDICTION", "Esta zona no es de tu distrito.");
+		}
 		z.setMode(req.mode());
 		z.setModeSource(ModeSource.MUNICIPALITY);
 		z.setModeReason(req.reason());
@@ -136,6 +142,14 @@ public class ZoneService {
 			case CLEAR_LOCAL -> u.setLocalEmergency(false);
 		}
 		return UserDto.from(u);
+	}
+
+	@Transactional(readOnly = true)
+	public java.util.List<ZoneDto> all() {
+		return zones.findAll().stream()
+				.sorted(Comparator.comparing(Zone::getName, String.CASE_INSENSITIVE_ORDER))
+				.map(ZoneDto::from)
+				.toList();
 	}
 
 	/** Zona para un SOS: la del vecino; si no tiene, la que cubre el punto; si ninguna, la más cercana. */

@@ -161,11 +161,12 @@ public class AuthService {
 		AppUser user = isNew
 				? users.save(AppUser.builder().phone(phone).name(NEW_USER_NAME).role(Role.NEIGHBOR).build())
 				: existing;
-		// Municipalidad y brigada se definen por celular (NEARBY_ADMIN_PHONES / NEARBY_BRIGADE_PHONES).
+		// Solo el administrador de la plataforma se define por celular (NEARBY_ADMIN_PHONES): es quien aprueba a
+		// las Municipalidades. NEARBY_BRIGADE_PHONES es opcional (demos) y solo sube a un vecino, nunca baja a nadie.
 		if (roles != null && roles.isAdmin(phone)) {
 			user.setRole(Role.ADMIN);
 		}
-		else if (roles != null && roles.isBrigade(phone)) {
+		else if (roles != null && roles.isBrigade(phone) && user.getRole() == Role.NEIGHBOR) {
 			user.setRole(Role.BRIGADIST);
 		}
 		return issue(user, isNew);

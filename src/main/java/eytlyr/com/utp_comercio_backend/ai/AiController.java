@@ -77,21 +77,21 @@ public class AiController {
 	}
 
 	@PostMapping("/api/v1/ai/rescue-plans")
-	@PreAuthorize("hasAnyRole('BRIGADIST', 'DELEGATE', 'ADMIN')")
+	@PreAuthorize("hasAnyRole('BRIGADIST', 'DELEGATE', 'MUNICIPALITY', 'ADMIN')")
 	@Operation(summary = "Generar el plan de rescate: reportes preventivos y misiones automáticas")
 	public RescuePlanDto generate() {
 		return rescue.generate(inventory.zoneOf(currentUser.id()));
 	}
 
 	@GetMapping("/api/v1/ai/rescue-plans/latest")
-	@PreAuthorize("hasAnyRole('BRIGADIST', 'DELEGATE', 'ADMIN')")
+	@PreAuthorize("hasAnyRole('BRIGADIST', 'DELEGATE', 'MUNICIPALITY', 'ADMIN')")
 	@Operation(summary = "Último plan de rescate de mi zona")
 	public RescuePlanDto latest() {
 		return rescue.latest(inventory.zoneOf(currentUser.id()));
 	}
 
 	@PostMapping("/api/v1/ai/missions/{reportId}/notify")
-	@PreAuthorize("hasAnyRole('BRIGADIST', 'DELEGATE', 'ADMIN')")
+	@PreAuthorize("hasAnyRole('BRIGADIST', 'DELEGATE', 'MUNICIPALITY', 'ADMIN')")
 	@Operation(summary = "Avisar a los vecinos asignados y dejar el reporte en camino")
 	public NotifyResult notifyMission(@PathVariable UUID reportId) {
 		return rescue.notifyMission(reportId);

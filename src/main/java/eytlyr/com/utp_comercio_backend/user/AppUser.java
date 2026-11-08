@@ -22,6 +22,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import eytlyr.com.utp_comercio_backend.common.BaseEntity;
+import eytlyr.com.utp_comercio_backend.municipality.Municipality;
 import eytlyr.com.utp_comercio_backend.zone.Zone;
 
 /** Vecino. El celular es el login. */
@@ -85,5 +86,10 @@ public class AppUser extends BaseEntity {
 	@Column(name = "local_emergency", nullable = false)
 	@Builder.Default
 	private boolean localEmergency = false;
+
+	/** Municipalidad de la que es parte (rol MUNICIPALITY). */
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "municipality_id")
+	private Municipality municipality;
 
 }

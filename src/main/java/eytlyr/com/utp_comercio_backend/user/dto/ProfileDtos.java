@@ -32,10 +32,19 @@ public final class ProfileDtos {
 	public record LocationRequest(
 			@DecimalMin("-90") @DecimalMax("90") Double lat,
 			@DecimalMin("-180") @DecimalMax("180") Double lng,
-			@Size(max = 200, message = "La dirección es muy larga") String addressText) {
+			@Size(max = 200, message = "La dirección es muy larga") String addressText,
+			// Barrio y distrito de la casa (los resuelve la app). Nombran la zona si hay que crearla.
+			@Size(max = 120) String zoneName,
+			@Size(max = 120) String district) {
 	}
 
-	public record UserLocationDto(Double lat, Double lng, String addressText, UUID zoneId, String zoneName) {
+	/** zoneCoversHome false: la zona guardada no cubre la casa (hay que volver a ubicar al vecino). */
+	public record UserLocationDto(Double lat, Double lng, String addressText, UUID zoneId, String zoneName,
+			boolean zoneCoversHome) {
+	}
+
+	/** Números reales del perfil: favores que hice, vistos buenos que di y favores que recibí. */
+	public record MeStatsDto(long favorsDone, long endorsementsGiven, long favorsReceived) {
 	}
 
 	public record TrustedContactDto(
