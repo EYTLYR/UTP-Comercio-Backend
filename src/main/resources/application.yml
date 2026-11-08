@@ -17,6 +17,13 @@ spring:
     default: dev
     group:
       local: dev
+  datasource:
+    hikari:
+      connection-timeout: 15000
+      initialization-fail-timeout: 60000
+      data-source-properties:
+        connectTimeout: 10
+        tcpKeepAlive: true
   jpa:
     open-in-view: false
     hibernate:
@@ -28,6 +35,12 @@ spring:
   jackson:
     time-zone: America/Lima
   flyway:
+    # DNS o arranque en frío de la base: reintentar sin omitir migraciones.
+    connect-retries: ${DB_CONNECT_RETRIES:5}
+    connect-retries-interval: ${DB_CONNECT_RETRY_INTERVAL:5s}
+    jdbc-properties:
+      connectTimeout: 10
+      tcpKeepAlive: true
     locations: classpath:db/migration
   servlet:
     multipart:
