@@ -2,7 +2,10 @@ package eytlyr.com.utp_comercio_backend.zone;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -20,6 +23,7 @@ import eytlyr.com.utp_comercio_backend.common.NotFoundException;
 import eytlyr.com.utp_comercio_backend.config.NearbyProperties;
 import eytlyr.com.utp_comercio_backend.municipality.Jurisdiction;
 import eytlyr.com.utp_comercio_backend.notification.Dispatch;
+import eytlyr.com.utp_comercio_backend.sos.SosAlert;
 import eytlyr.com.utp_comercio_backend.sos.SosAlertRepository;
 import eytlyr.com.utp_comercio_backend.sos.SosStatus;
 import eytlyr.com.utp_comercio_backend.user.AppUser;
@@ -105,8 +109,11 @@ public class ZoneService {
 	}
 
 	/**
-	 * Si en la zona hay al menos N SOS activos en la ventana configurada (5 en 10 minutos por defecto),
-	 * la zona pasa sola a EMERGENCY.
+	 * Si en la zona hay al menos N SOS activos en la ventana configurada (5 en 10 minutos por defecto):
+	 * - Cuenta únicamente alertas de AppUser distintos (DISTINCT user_id).
+	 * - Excluye usuarios creados en las últimas 24 horas (anti-throwaway/spam).
+	 * - Si las alertas forman un clúster hiperlocal (< 10 metros entre sí), requiere 10 SOS en su lugar
+	 *   o validación manual de un BRIGADISTA.
 	 * @return true si se activó en esta llamada
 	 */
 	@Transactional
@@ -114,21 +121,64 @@ public class ZoneService {
 		if (z.getMode() == ZoneMode.EMERGENCY) {
 			return false;
 		}
-		OffsetDateTime since = OffsetDateTime.now(clock).minusMinutes(emergencyProps.autoActivateWindowMinutes());
-		long active = sosAlerts.countByZoneIdAndStatusAndCreatedAtAfter(z.getId(), SosStatus.ACTIVE, since);
-		if (active < emergencyProps.autoActivateSosCount()) {
+		OffsetDateTime now = OffsetDateTime.now(clock);
+		OffsetDateTime since = now.minusMinutes(emergencyProps.autoActivateWindowMinutes());
+		OffsetDateTime userCutoff = now.minusHours(24);
+
+		List<SosAlert> validAlerts = sosAlerts.findValidRecentSosAlerts(z.getId(), SosStatus.ACTIVE, since, userCutoff);
+
+		// Filtrar una alerta por usuario distinto
+		Map<UUID, SosAlert> distinctUserAlerts = new LinkedHashMap<>();
+		for (SosAlert a : validAlerts) {
+			distinctUserAlerts.putIfAbsent(a.getUser().getId(), a);
+		}
+
+		int distinctCount = distinctUserAlerts.size();
+		int baseThreshold = emergencyProps.autoActivateSosCount();
+
+		if (distinctCount < baseThreshold) {
 			return false;
 		}
+
+		List<SosAlert> alertList = new ArrayList<>(distinctUserAlerts.values());
+		boolean roomCluster = isUnderDistanceCluster(alertList, 10.0);
+		int requiredThreshold = roomCluster ? 10 : baseThreshold;
+
+		if (distinctCount < requiredThreshold) {
+			log.warn("Zona {}: Clúster de alertas SOS a < 10m entre sí (posible habitación única). "
+					+ "Se requieren {} alertas de usuarios distintos (actuales: {}) o validación manual de brigadista.",
+					z.getName(), requiredThreshold, distinctCount);
+			return false;
+		}
+
 		z.setMode(ZoneMode.EMERGENCY);
 		z.setModeSource(ModeSource.AUTO_SOS);
-		z.setModeReason(active + " alertas SOS en " + emergencyProps.autoActivateWindowMinutes() + " minutos");
-		z.setModeActivatedAt(OffsetDateTime.now(clock));
-		log.warn("Zona {} pasó a EMERGENCY automáticamente ({} SOS activos)", z.getName(), active);
+		z.setModeReason(distinctCount + " alertas SOS de usuarios distintos en " + emergencyProps.autoActivateWindowMinutes() + " minutos"
+				+ (roomCluster ? " (clúster validado con 10+ SOS)" : ""));
+		z.setModeActivatedAt(now);
+		log.warn("Zona {} pasó a EMERGENCY automáticamente ({} SOS activos de usuarios distintos legítimos)", z.getName(), distinctCount);
 		events.publishEvent(new ZoneEmergencyActivatedEvent(z.getId()));
 		events.publishEvent(Dispatch.builder()
 				.zone(z.getId(), "Modo emergencia activo", "Varios vecinos pidieron ayuda. Revisa el tablero.",
 						Map.of("type", "zone_mode", "mode", "EMERGENCY"))
 				.build());
+		return true;
+	}
+
+	private static boolean isUnderDistanceCluster(List<SosAlert> alerts, double maxDistanceM) {
+		if (alerts.size() < 2) {
+			return false;
+		}
+		for (int i = 0; i < alerts.size(); i++) {
+			for (int j = i + 1; j < alerts.size(); j++) {
+				double dist = GeoUtils.haversineMeters(
+						alerts.get(i).getLat(), alerts.get(i).getLng(),
+						alerts.get(j).getLat(), alerts.get(j).getLng());
+				if (dist >= maxDistanceM) {
+					return false;
+				}
+			}
+		}
 		return true;
 	}
 

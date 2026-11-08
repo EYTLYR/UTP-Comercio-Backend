@@ -25,6 +25,43 @@ public interface SosAlertRepository extends JpaRepository<SosAlert, UUID> {
 
 	long countByZoneIdAndStatusAndCreatedAtAfter(UUID zoneId, SosStatus status, OffsetDateTime since);
 
+	/**
+	 * Cuenta únicamente alertas de AppUser distintos (DISTINCT user_id),
+	 * excluyendo usuarios creados en las últimas 24 horas (prevención de cuentas throwaway).
+	 */
+	@Query("""
+			SELECT COUNT(DISTINCT a.user.id) FROM SosAlert a
+			JOIN a.user u
+			WHERE a.zone.id = :zoneId
+			  AND a.status = :status
+			  AND a.createdAt > :since
+			  AND u.createdAt <= :userCreatedBefore
+			""")
+	long countDistinctValidUsersInRecentSos(
+			@Param("zoneId") UUID zoneId,
+			@Param("status") SosStatus status,
+			@Param("since") OffsetDateTime since,
+			@Param("userCreatedBefore") OffsetDateTime userCreatedBefore);
+
+	/**
+	 * Alertas recientes activas de usuarios legítimos (antigüedad > 24 horas)
+	 * con sus ubicaciones para evaluar clústeres de proximidad (<10m).
+	 */
+	@Query("""
+			SELECT a FROM SosAlert a
+			JOIN FETCH a.user u
+			WHERE a.zone.id = :zoneId
+			  AND a.status = :status
+			  AND a.createdAt > :since
+			  AND u.createdAt <= :userCreatedBefore
+			ORDER BY a.createdAt DESC
+			""")
+	List<SosAlert> findValidRecentSosAlerts(
+			@Param("zoneId") UUID zoneId,
+			@Param("status") SosStatus status,
+			@Param("since") OffsetDateTime since,
+			@Param("userCreatedBefore") OffsetDateTime userCreatedBefore);
+
 	@Query("select a from SosAlert a join fetch a.user where a.zone.id = :zoneId and a.status = :status")
 	List<SosAlert> findByZoneAndStatus(@Param("zoneId") UUID zoneId, @Param("status") SosStatus status);
 

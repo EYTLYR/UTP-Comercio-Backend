@@ -34,15 +34,19 @@ import eytlyr.com.utp_comercio_backend.emergency.dto.EmergencyDtos.VulnerableRep
 import eytlyr.com.utp_comercio_backend.notification.Dispatch;
 import eytlyr.com.utp_comercio_backend.prevention.MitigationType;
 import eytlyr.com.utp_comercio_backend.sos.CheckInRepository;
-import eytlyr.com.utp_comercio_backend.zone.ZoneRepository;
-import eytlyr.com.utp_comercio_backend.zone.ZoneMode;
-import eytlyr.com.utp_comercio_backend.zone.Zone;
 import eytlyr.com.utp_comercio_backend.sos.CheckInStatus;
+import eytlyr.com.utp_comercio_backend.sos.SosAlert;
 import eytlyr.com.utp_comercio_backend.sos.SosAlertRepository;
 import eytlyr.com.utp_comercio_backend.sos.SosStatus;
 import eytlyr.com.utp_comercio_backend.user.AppUser;
 import eytlyr.com.utp_comercio_backend.user.AppUserRepository;
 import eytlyr.com.utp_comercio_backend.user.Role;
+import eytlyr.com.utp_comercio_backend.zone.ModeSource;
+import eytlyr.com.utp_comercio_backend.zone.Zone;
+import eytlyr.com.utp_comercio_backend.zone.ZoneEmergencyActivatedEvent;
+import eytlyr.com.utp_comercio_backend.zone.ZoneMode;
+import eytlyr.com.utp_comercio_backend.zone.ZoneRepository;
+import eytlyr.com.utp_comercio_backend.zone.dto.ZoneDtos.ZoneDto;
 
 /** Modo emergencia: tablero humanitario, recursos críticos, grupos de apoyo y puntos seguros. */
 @Service
@@ -360,5 +364,49 @@ public class EmergencyService {
 
 	private AppUser user(UUID userId) {
 		return users.findById(userId).orElseThrow(() -> NotFoundException.of("el usuario"));
+	}
+
+	/**
+	 * Validación manual de brigadista: un usuario con rol BRIGADIST valida las alertas y activa la emergencia.
+	 */
+	@Transactional
+	public ZoneDto validateAndActivateEmergency(UUID brigadistId, UUID zoneId, String reason) {
+		AppUser actor = user(brigadistId);
+		if (!isBrigade(actor)) {
+			throw new ForbiddenException("BRIGADIST_REQUIRED", "Solo un brigadista o autoridad puede validar la emergencia.");
+		}
+		Zone z = zones.findById(zoneId).orElseThrow(() -> NotFoundException.of("la zona"));
+		z.setMode(ZoneMode.EMERGENCY);
+		z.setModeSource(ModeSource.BRIGADIST);
+		z.setModeReason(reason != null && !reason.isBlank() ? reason : "Validado manualmente por brigadista " + actor.getName());
+		z.setModeActivatedAt(OffsetDateTime.now(clock));
+		zones.save(z);
+		events.publishEvent(new ZoneEmergencyActivatedEvent(z.getId()));
+		events.publishEvent(Dispatch.builder()
+				.zone(z.getId(), "Modo emergencia activo: validado por brigadista", z.getModeReason(),
+						Map.of("type", "zone_mode", "mode", "EMERGENCY"))
+				.build());
+		return ZoneDto.from(z);
+	}
+
+	/**
+	 * Evalúa si todas las alertas de la lista están concentradas a menos de maxDistanceM metros entre sí
+	 * (posible broma de un grupo en la misma habitación).
+	 */
+	public static boolean isUnderDistanceCluster(List<SosAlert> alerts, double maxDistanceM) {
+		if (alerts.size() < 2) {
+			return false;
+		}
+		for (int i = 0; i < alerts.size(); i++) {
+			for (int j = i + 1; j < alerts.size(); j++) {
+				double dist = GeoUtils.haversineMeters(
+						alerts.get(i).getLat(), alerts.get(i).getLng(),
+						alerts.get(j).getLat(), alerts.get(j).getLng());
+				if (dist >= maxDistanceM) {
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 }

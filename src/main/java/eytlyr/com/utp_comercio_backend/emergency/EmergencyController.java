@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -31,6 +32,7 @@ import eytlyr.com.utp_comercio_backend.emergency.dto.EmergencyDtos.SafePointDto;
 import eytlyr.com.utp_comercio_backend.emergency.dto.EmergencyDtos.SupportGroupDto;
 import eytlyr.com.utp_comercio_backend.emergency.dto.EmergencyDtos.VulnerableReportDto;
 import eytlyr.com.utp_comercio_backend.emergency.dto.EmergencyDtos.VulnerableReportRequest;
+import eytlyr.com.utp_comercio_backend.zone.dto.ZoneDtos.ZoneDto;
 
 @RestController
 @Tag(name = "Emergencia", description = "Tablero humanitario, recursos críticos, grupos de apoyo y puntos seguros")
@@ -120,5 +122,12 @@ public class EmergencyController {
 	@Operation(summary = "Puntos de reunión y refugios")
 	public List<SafePointDto> safePoints() {
 		return emergency.safePoints(currentUser.id());
+	}
+
+	@PostMapping("/api/v1/emergency/validate-zone/{id}")
+	@PreAuthorize("hasAnyRole('BRIGADIST', 'DELEGATE', 'MUNICIPALITY', 'ADMIN')")
+	@Operation(summary = "Validación manual de brigadista: valida la alerta y activa el modo emergencia en la zona")
+	public ZoneDto validateZone(@PathVariable UUID id, @RequestParam(required = false) String reason) {
+		return emergency.validateAndActivateEmergency(currentUser.id(), id, reason);
 	}
 }
